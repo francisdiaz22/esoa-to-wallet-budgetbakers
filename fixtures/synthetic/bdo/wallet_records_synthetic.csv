@@ -1,0 +1,36 @@
+record_id;date;payee;description;amount;currency;category;account;source_row_id;note
+wallet-001;2026-07-29;PC Express;PC EXPRESS SM NORTH II QUEZON CITY PH - installment 5 of 12;-828.33;PHP;Electronics;Synthetic Credit Card;p1-r001;Synthetic history example
+wallet-002;2026-07-29;BDO;MONTHLY MEMBERSHIP FEE;-200.00;PHP;Fees;Synthetic Credit Card;p1-r002;Synthetic history example
+wallet-003;2026-07-29;Skechers;SKECHERS PASEO LAGUNA PH - installment 4 of 6;-1885.42;PHP;Clothing & Shoes;Synthetic Credit Card;p1-r003;Synthetic history example
+wallet-004;2026-07-29;IKEA;IKEA PASAY PH - installment 2 of 3;-2500.00;PHP;Home & Garden;Synthetic Credit Card;p1-r004;Synthetic split 1 of 2
+wallet-005;2026-07-29;Household member;IKEA PASAY PH - installment 2 of 3;-1047.00;PHP;Other;Synthetic Credit Card;p1-r004;Synthetic split 2 of 2
+wallet-006;2026-07-29;Ace Hardware;ACE HARDWARE-MALOLOS BULACAN PH - installment 1 of 3;-1632.60;PHP;Home & Garden;Synthetic Credit Card;p1-r005;Synthetic history example
+wallet-007;2026-06-28;Shopee;SHOPEE PH MANDALUYONG PH;-1869.00;PHP;Shopping;Synthetic Credit Card;p1-r006;Synthetic history example
+wallet-008;2026-06-29;Shopee;SHOPEE PH MANDALUYONG PH;-394.00;PHP;Shopping;Synthetic Credit Card;p1-r007;Synthetic history example
+wallet-009;2026-07-04;Contis;CONTIS MALOLOS BULACAN PH;-4054.02;PHP;Restaurants;Synthetic Credit Card;p1-r008;Synthetic history example
+wallet-010;2026-07-05;McDonald's;MCDO 781 BALAGTAS BALAGTAS PH;-138.00;PHP;Fast Food;Synthetic Credit Card;p1-r009;Synthetic history example
+wallet-011;2026-07-06;Greatfit Makers;GREATFIT MAKERS-HO PASIG CITY PH;-1859.00;PHP;Health & Fitness;Synthetic Credit Card;p1-r010;Synthetic history example
+wallet-012;2026-07-06;Shopee;SHOPEE PH MANDALUYONG PH;-1331.00;PHP;Shopping;Synthetic Credit Card;p1-r011;Synthetic history example
+wallet-013;2026-07-07;Watsons;WATSONS WALTERMART MAL BULACAN PH;-1621.00;PHP;Health;Synthetic Credit Card;p1-r012;Synthetic history example
+wallet-014;2026-07-07;MR.DIY;MR DIY WML MALOLOS PH;-317.00;PHP;Home & Garden;Synthetic Credit Card;p1-r013;Synthetic history example
+wallet-015;2026-07-07;Shopee;SHOPEE PH MANDALUYONG PH;-99.00;PHP;Shopping;Synthetic Credit Card;p1-r014;Synthetic history example
+wallet-016;2026-07-07;Shopee;SHOPEE PH MANDALUYONG PH;-129.00;PHP;Shopping;Synthetic Credit Card;p1-r015;Synthetic history example
+wallet-017;2026-07-07;Shopee;SHOPEE PH MANDALUYONG PH;-469.00;PHP;Shopping;Synthetic Credit Card;p2-r016;Synthetic history example
+wallet-018;2026-07-08;Healthy Options;HEALTHY OPTIONS TAGUIG PH;-529.00;PHP;Groceries;Synthetic Credit Card;p2-r017;Synthetic history example
+wallet-019;2026-07-08;The Marketplace;THE MARKETPLACE UPTO TAGUIG CITY PH;-188.00;PHP;Groceries;Synthetic Credit Card;p2-r018;Synthetic history example
+wallet-020;2026-07-08;Globe;GLOBE-BILLSPAY TAGUIG CITY PH;-999.00;PHP;Phone & Internet;Synthetic Credit Card;p2-r019;Synthetic history example
+wallet-021;2026-07-08;7-Eleven;7-ELEVEN-ST2514 FORT BONIFACI PH;-100.00;PHP;Groceries;Synthetic Credit Card;p2-r020;Synthetic history example
+wallet-022;2026-07-09;Department Store;WDEPT STORE-MALOLOS BU BULACAN PH;-1099.00;PHP;Shopping;Synthetic Credit Card;p2-r021;Synthetic history example
+wallet-023;2026-07-09;Shell;SHELL-EMERIGOLD-MALOLO BULACAN PH;-1400.00;PHP;Fuel;Synthetic Credit Card;p2-r022;Synthetic history example
+wallet-024;2026-07-09;Klook;KLOOK FLICKET TAGUIG PH;-3000.00;PHP;Travel;Synthetic Credit Card;p2-r023;Synthetic split 1 of 2
+wallet-025;2026-07-09;Travel companion;KLOOK FLICKET TAGUIG PH;-732.50;PHP;Other;Synthetic Credit Card;p2-r023;Synthetic split 2 of 2
+wallet-026;2026-07-09;Klook;KLOOK FLICKET TAGUIG PH;-1379.30;PHP;Travel;Synthetic Credit Card;p2-r024;Synthetic history example
+wallet-027;2026-07-10;Resort;RE BALER AURORA AURORA PH;-550.50;PHP;Travel;Synthetic Credit Card;p2-r025;Synthetic history example
+wallet-028;2026-07-10;Mercury Drug;CLDCMERCURYDRUG3018 RIZAL PH;-52.50;PHP;Health;Synthetic Credit Card;p2-r026;Synthetic history example
+wallet-029;2026-07-10;Mercury Drug;CLDCMERCURYDRUG3018 RIZAL PH;-998.00;PHP;Health;Synthetic Credit Card;p2-r027;Synthetic history example
+wallet-030;2026-07-10;McDonald's;MCDONALDS RIZAL FC RIZAL PH;-423.00;PHP;Fast Food;Synthetic Credit Card;p2-r028;Synthetic history example
+wallet-031;2026-07-11;Bays Inn;BAYS INN RESORT AURORA PH;-1056.00;PHP;Travel;Synthetic Credit Card;p2-r029;Synthetic history example
+wallet-032;2026-07-12;Jollibee;JOLLIBEE JB3283 CP CONCEPCION PH;-275.00;PHP;Fast Food;Synthetic Credit Card;p2-r030;Synthetic history example
+wallet-033;2026-07-12;Mang Inasal;MANGINASAL MI3130 CONCEPCION PH;-165.00;PHP;Fast Food;Synthetic Credit Card;p2-r031;Synthetic history example
+wallet-034;2026-07-12;Resort;RE-BALER AURORA AURORA PH;-1512.00;PHP;Travel;Synthetic Credit Card;p2-r032;Synthetic history example
+wallet-035;2026-07-27;Grab;GRAB PASIG CITY PH;-125.00;PHP;Transportation;Synthetic Credit Card;p3-r033;Synthetic history example

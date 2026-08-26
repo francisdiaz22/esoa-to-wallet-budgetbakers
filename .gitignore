@@ -1,0 +1,56 @@
+# Operating-system and editor metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment files, credentials, and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.token
+
+# Dependencies, builds, coverage, and test artifacts
+node_modules/
+dist/
+dist-server/
+build/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# Runtime uploads and ephemeral session data
+uploads/
+data/uploads/
+.sessions/
+.session/
+tmp/
+temp/
+ocr-output/
+diagnostic-bundles/
+
+# Financial documents and exports are private by default. Synthetic fixtures
+# must be explicitly allowlisted below after review.
+*.csv
+*.tsv
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.heic
+*.tif
+*.tiff
+*.bmp
+*.gif
+*.ocr.txt
+
+# Reviewed synthetic fixtures used by tests and the offline demo.
+!fixtures/synthetic/bdo/expected_extraction.csv
+!fixtures/synthetic/bdo/wallet_records_synthetic.csv
+!fixtures/synthetic/bdo/statement_page_1.jpg
+!fixtures/synthetic/bdo/statement_page_2.jpg
+!fixtures/synthetic/bdo/statement_page_3.jpg
