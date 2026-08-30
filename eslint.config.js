@@ -23,5 +23,15 @@ export default tseslint.config(
   {
     files: ['src/server/**/*.ts', 'scripts/**/*.mjs', 'vite.config.ts'],
     languageOptions: { globals: globals.node },
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
   },
 );

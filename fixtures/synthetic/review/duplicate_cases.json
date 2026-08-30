@@ -1,0 +1,82 @@
+{
+  "description": "Synthetic duplicate detection fixture — clearly labeled synthetic, no real financial data",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "name": "exact duplicate - same date amount description reference",
+      "a": {
+        "date": "2026-07-29",
+        "amountMinor": -10000,
+        "description": "SYNTHETIC MERCHANT A",
+        "reference": "REF123"
+      },
+      "b": {
+        "date": "2026-07-29",
+        "amountMinor": -10000,
+        "description": "SYNTHETIC MERCHANT A",
+        "reference": "REF123"
+      },
+      "expected": "exact"
+    },
+    {
+      "name": "near duplicate - within 1 day",
+      "a": {
+        "date": "2026-07-29",
+        "amountMinor": -5000,
+        "description": "SYNTHETIC MERCHANT B",
+        "reference": "REF999"
+      },
+      "b": {
+        "date": "2026-07-30",
+        "amountMinor": -5000,
+        "description": "SYNTHETIC MERCHANT B",
+        "reference": "REF999"
+      },
+      "expected": "near"
+    },
+    {
+      "name": "non-duplicate - same merchant different legitimate date far",
+      "a": {
+        "date": "2026-07-29",
+        "amountMinor": -5000,
+        "description": "SYNTHETIC MERCHANT C"
+      },
+      "b": {
+        "date": "2026-08-10",
+        "amountMinor": -5000,
+        "description": "SYNTHETIC MERCHANT C"
+      },
+      "expected": "none"
+    },
+    {
+      "name": "non-duplicate - same amount unrelated description",
+      "a": {
+        "date": "2026-07-29",
+        "amountMinor": -7500,
+        "description": "SYNTHETIC CAFE X"
+      },
+      "b": {
+        "date": "2026-07-29",
+        "amountMinor": -7500,
+        "description": "UNRELATED SHOP Y"
+      },
+      "expected": "none"
+    },
+    {
+      "name": "punctuation/case normalization",
+      "a": {
+        "date": "2026-07-29",
+        "amountMinor": -12345,
+        "description": "  Synthetic   MERCHANT, A! ",
+        "reference": "REF-123"
+      },
+      "b": {
+        "date": "2026-07-29",
+        "amountMinor": -12345,
+        "description": "synthetic merchant a",
+        "reference": "ref 123"
+      },
+      "expected": "exact"
+    }
+  ]
+}

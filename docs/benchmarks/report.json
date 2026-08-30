@@ -1,0 +1,305 @@
+{
+  "version": "0.1.0",
+  "methodology": {
+    "fixtureIds": [
+      "synthetic-bdo-v1",
+      "eval-v1"
+    ],
+    "timingArtifact": "benchmark-timing.json (generated in CI, not committed)"
+  },
+  "fixtures": {
+    "bdoStatement": "fixtures/synthetic/bdo/statement_page_*.jpg (3 pages)",
+    "expectedExtraction": "fixtures/synthetic/bdo/expected_extraction.csv (33 included + 4 excluded, PHP 34,957.17)",
+    "walletRecords": "fixtures/synthetic/bdo/wallet_records_synthetic.csv (35 rows)",
+    "evaluationCases": "fixtures/synthetic/evaluation/cases.json (20 cases)",
+    "reviewFixtures": "fixtures/synthetic/review/(duplicate_cases, split_cases, expected_summary)"
+  },
+  "extraction": {
+    "proposedCount": 33,
+    "excludedCount": 4,
+    "expenseTotal": 34957.17,
+    "parserId": "bdo-visa-gold-ph-image-v1",
+    "sourceFormat": "ocr",
+    "fixture": "fixtures/synthetic/bdo/expected_extraction.csv",
+    "correctRows": 33,
+    "precision": 1,
+    "recall": 1,
+    "f1": 1,
+    "reconciliation": "37 recognized = 33 proposed + 4 excluded; all negative proposed amounts; PHP 34,957.17",
+    "note": "Row correct only when all required fields match. Baseline 33/33 Oracle."
+  },
+  "classification": {
+    "totalCases": 20,
+    "baseline": {
+      "total": 20,
+      "coverage": 0.7,
+      "precision": 1,
+      "unknownRate": 0.3,
+      "lowConfidenceRate": 0,
+      "malformedUnavailableRate": 0,
+      "perCategorySupport": {
+        "Shopping": 4,
+        "Electronics": 1,
+        "Groceries": 1,
+        "Health & Fitness": 1,
+        "unknown": 2,
+        "Home & Garden": 2,
+        "Fees": 1,
+        "Fast Food": 1,
+        "Travel": 1,
+        "Transportation": 1,
+        "Fuel": 1,
+        "Health": 1,
+        "Restaurants": 1,
+        "Phone & Internet": 1,
+        "Other": 1
+      },
+      "confidenceBuckets": [
+        {
+          "range": "0.0-0.2",
+          "count": 0,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "range": "0.2-0.4",
+          "count": 3,
+          "correct": 2,
+          "accuracy": 0.6666666666666666
+        },
+        {
+          "range": "0.4-0.6",
+          "count": 3,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "range": "0.6-0.8",
+          "count": 0,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "range": "0.8-1.0",
+          "count": 14,
+          "correct": 14,
+          "accuracy": 1
+        }
+      ]
+    },
+    "fakeProvider": {
+      "total": 20,
+      "coverage": 0.9,
+      "precision": 1,
+      "unknownRate": 0.1,
+      "lowConfidenceRate": 0,
+      "malformedUnavailableRate": 0,
+      "perCategorySupport": {
+        "Shopping": 4,
+        "Electronics": 1,
+        "Groceries": 1,
+        "Health & Fitness": 1,
+        "unknown": 2,
+        "Home & Garden": 2,
+        "Fees": 1,
+        "Fast Food": 1,
+        "Travel": 1,
+        "Transportation": 1,
+        "Fuel": 1,
+        "Health": 1,
+        "Restaurants": 1,
+        "Phone & Internet": 1,
+        "Other": 1
+      },
+      "confidenceBuckets": [
+        {
+          "range": "0.0-0.2",
+          "count": 0,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "range": "0.2-0.4",
+          "count": 2,
+          "correct": 2,
+          "accuracy": 1
+        },
+        {
+          "range": "0.4-0.6",
+          "count": 0,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "range": "0.6-0.8",
+          "count": 0,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "range": "0.8-1.0",
+          "count": 18,
+          "correct": 18,
+          "accuracy": 1
+        }
+      ]
+    },
+    "calibrationBuckets": "see evaluation harness"
+  },
+  "duplicates": {
+    "cases": {
+      "description": "Synthetic duplicate detection fixture — clearly labeled synthetic, no real financial data",
+      "version": "1.0.0",
+      "cases": [
+        {
+          "name": "exact duplicate - same date amount description reference",
+          "a": {
+            "date": "2026-07-29",
+            "amountMinor": -10000,
+            "description": "SYNTHETIC MERCHANT A",
+            "reference": "REF123"
+          },
+          "b": {
+            "date": "2026-07-29",
+            "amountMinor": -10000,
+            "description": "SYNTHETIC MERCHANT A",
+            "reference": "REF123"
+          },
+          "expected": "exact"
+        },
+        {
+          "name": "near duplicate - within 1 day",
+          "a": {
+            "date": "2026-07-29",
+            "amountMinor": -5000,
+            "description": "SYNTHETIC MERCHANT B",
+            "reference": "REF999"
+          },
+          "b": {
+            "date": "2026-07-30",
+            "amountMinor": -5000,
+            "description": "SYNTHETIC MERCHANT B",
+            "reference": "REF999"
+          },
+          "expected": "near"
+        },
+        {
+          "name": "non-duplicate - same merchant different legitimate date far",
+          "a": {
+            "date": "2026-07-29",
+            "amountMinor": -5000,
+            "description": "SYNTHETIC MERCHANT C"
+          },
+          "b": {
+            "date": "2026-08-10",
+            "amountMinor": -5000,
+            "description": "SYNTHETIC MERCHANT C"
+          },
+          "expected": "none"
+        },
+        {
+          "name": "non-duplicate - same amount unrelated description",
+          "a": {
+            "date": "2026-07-29",
+            "amountMinor": -7500,
+            "description": "SYNTHETIC CAFE X"
+          },
+          "b": {
+            "date": "2026-07-29",
+            "amountMinor": -7500,
+            "description": "UNRELATED SHOP Y"
+          },
+          "expected": "none"
+        },
+        {
+          "name": "punctuation/case normalization",
+          "a": {
+            "date": "2026-07-29",
+            "amountMinor": -12345,
+            "description": "  Synthetic   MERCHANT, A! ",
+            "reference": "REF-123"
+          },
+          "b": {
+            "date": "2026-07-29",
+            "amountMinor": -12345,
+            "description": "synthetic merchant a",
+            "reference": "ref 123"
+          },
+          "expected": "exact"
+        }
+      ]
+    },
+    "splitCases": {
+      "description": "Synthetic split fixture — centavo-exact and intentionally invalid totals, no real data",
+      "version": "1.0.0",
+      "valid": {
+        "sourceAmountMinor": -10000,
+        "splits": [
+          {
+            "amountMinor": -6000,
+            "categoryName": "Shopping"
+          },
+          {
+            "amountMinor": -4000,
+            "categoryName": "Food"
+          }
+        ],
+        "expected": "valid"
+      },
+      "invalidTotal": {
+        "sourceAmountMinor": -10000,
+        "splits": [
+          {
+            "amountMinor": -6000,
+            "categoryName": "Shopping"
+          },
+          {
+            "amountMinor": -3000,
+            "categoryName": "Food"
+          }
+        ],
+        "expected": "split_total_mismatch"
+      },
+      "unbalancedIntermediate": {
+        "sourceAmountMinor": -10000,
+        "initialSplits": [
+          {
+            "amountMinor": -6000,
+            "categoryName": "Shopping"
+          },
+          {
+            "amountMinor": -4000,
+            "categoryName": "Food"
+          }
+        ],
+        "editedSplit": {
+          "index": 0,
+          "newAmountMinor": -5000
+        },
+        "expectedAfterEdit": "split_total_mismatch"
+      }
+    },
+    "exactNearNonDuplicate": "tested via unit integration",
+    "splitCentavoReconciliation": "33-source to 35-leaf, PHP 34,957.17",
+    "eligibility": "only approved valid leaf review items may be dry-run/committed"
+  },
+  "wallet": {
+    "scenarios": [
+      "all-success",
+      "mixed 207",
+      "throttle 429 with Retry-After",
+      "initial-sync 409",
+      "timeout/unknown → not auto resent",
+      "retryable server_error → server-selected retry only"
+    ],
+    "perInputIndex": true,
+    "chunkMax": 20
+  },
+  "limitations": [
+    "fixture-backed formats only (BDO Visa Gold PHP image); synthetic bias",
+    "local-model/OCR variance",
+    "no cross-session idempotency",
+    "no cross-Wallet duplicate matching",
+    "single currency PHP"
+  ]
+}

@@ -18,19 +18,57 @@
 
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 0;
   min-height: 100vh;
 }
 
+main,
+section,
+fieldset,
+form,
+div,
+p,
+ol,
+li {
+  min-width: 0;
+}
+
+p,
+li,
+button,
+label,
+td,
+th {
+  overflow-wrap: anywhere;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
 main {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
-  gap: clamp(2rem, 7vw, 7rem);
-  align-items: center;
-  width: min(70rem, calc(100% - 2rem));
-  min-height: 100vh;
+  display: block;
+  max-width: 70rem;
   margin: 0 auto;
-  padding: 4rem 0;
+  padding: 2rem 1rem;
+}
+
+/* Focus visibility — WCAG 2.2 AA */
+*:focus-visible {
+  outline: 3px solid #285c42;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid #285c42;
+  outline-offset: 2px;
 }
 
 .eyebrow {
@@ -43,20 +81,20 @@ main {
 }
 
 h1 {
-  max-width: 8ch;
+  max-width: 10ch;
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(4rem, 10vw, 8.5rem);
+  font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: 500;
   letter-spacing: -0.07em;
   line-height: 0.82;
 }
 
 .lede {
-  max-width: 34rem;
+  max-width: 46rem;
   margin: 2rem 0;
   color: #46534b;
-  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
   line-height: 1.55;
 }
 
@@ -95,6 +133,27 @@ h2 {
   text-transform: uppercase;
 }
 
+.workflow-step-heading {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.workflow-step-number {
+  display: inline-flex;
+  flex: 0 0 1.75rem;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: #285c42;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
 ul {
   display: grid;
   gap: 1rem;
@@ -116,13 +175,159 @@ li {
   line-height: 1.5;
 }
 
-@media (max-width: 760px) {
-  main {
-    grid-template-columns: 1fr;
-    align-content: center;
+/* Responsive: review table becomes labelled cards at 320px */
+@media (max-width: 640px) {
+  table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
   }
+  thead {
+    display: none;
+  }
+  table tbody,
+  table tr {
+    display: block;
+    width: 100%;
+  }
+  table tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid #d4dbd4;
+    border-radius: 8px;
+    padding: 0.6rem;
+    background: white;
+  }
+  table td {
+    display: flex;
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.3rem 0 !important;
+    border: none !important;
+  }
+  table td > * {
+    min-width: 0;
+  }
+  table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #46534b;
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+}
 
-  h1 {
-    max-width: 10ch;
+/* Reflow at 320px and 200% zoom */
+@media (max-width: 360px) {
+  main {
+    padding: 1rem 0.5rem;
   }
+  h1 {
+    font-size: 1.8rem;
+  }
+  section {
+    padding: 1rem !important;
+  }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast & state colour pairings (not colour-only) */
+[role='alert'] {
+  border-left-width: 4px;
+}
+
+/* Ensure all interactive elements have visible label and min touch target */
+button,
+[role='button'] {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.model-progress {
+  max-width: 32rem;
+  margin-top: 0.9rem;
+}
+
+.model-progress__track {
+  height: 0.6rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce5df;
+}
+
+.model-progress__indicator {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: #285c42;
+  animation: model-progress-slide 1.35s ease-in-out infinite;
+}
+
+.model-progress__label {
+  margin: 0.45rem 0 0;
+  color: #46534b;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@keyframes model-progress-slide {
+  0% {
+    transform: translateX(-105%);
+  }
+  50% {
+    transform: translateX(140%);
+  }
+  100% {
+    transform: translateX(245%);
+  }
+}
+
+/* Accessible table headers */
+th {
+  font-weight: 700;
+  text-align: left;
+}
+
+/* Error association */
+[aria-invalid='true'] {
+  border-color: #b42318 !important;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
+}
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  width: auto;
+  height: auto;
+  padding: 0.6rem 1rem;
+  background: #285c42;
+  color: white;
+  border-radius: 8px;
+  z-index: 1000;
 }

@@ -1,0 +1,75 @@
+name: Manual release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.5.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify clean tree
+        run: |
+          if ! git diff --check; then echo "whitespace errors"; exit 1; fi
+          if ! git diff --quiet; then echo "working tree not clean"; git status; exit 1; fi
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Full check (format, lint, typecheck, unit, e2e, eval, benchmark, scans)
+        run: npm run check
+
+      - name: Verify deterministic generated reports
+        run: git diff --exit-code -- docs/benchmarks/report.json docs/benchmarks/report.md
+
+      - name: Upload measured benchmark timing
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-timing
+          path: artifacts/benchmark-timing.json
+
+      - name: Audit
+        run: npm run audit
+
+      - name: Build
+        run: npm run build
+
+      - name: Synthetic demo smoke (offline, no Wallet)
+        run: |
+          echo "Demo is covered by Playwright suite in 'npm run test:e2e' (demo start, banner, review action, blocked commit, clear)."
+          echo "Verify separately with network disabled when doing a manual release per docs/release/RELEASE.md"
+
+  tag:
+    needs: verify
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    # Tagging is manual; this job is a placeholder and does not auto-tag unless explicitly run
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: No auto-tag
+        run: |
+          echo "Manual release workflow completed verification."
+          echo "To publish, run per docs/release/RELEASE.md:"
+          echo "  git tag v${{ inputs.version }} -m \"v${{ inputs.version }}\""
+          echo "  git push origin v${{ inputs.version }}"
+          echo "  gh release create v${{ inputs.version }} --title \"v${{ inputs.version }}\" --notes-file CHANGELOG.md"

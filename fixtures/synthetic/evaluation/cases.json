@@ -1,0 +1,162 @@
+[
+  {
+    "id": "case-001-exact-repeat-shopping",
+    "description": "SHOPEE PH MANDALUYONG PH",
+    "amountMinor": -186900,
+    "date": "2026-07-06",
+    "expectedCategory": "Shopping",
+    "explanation": "Exact merchant repeat from history (wallet-008). Baseline should match exactly."
+  },
+  {
+    "id": "case-002-exact-repeat-electronics-installment",
+    "description": "PC EXPRESS SM NORTH II QUEZON CITY PH - installment 5 of 12",
+    "amountMinor": -82833,
+    "date": "2026-07-29",
+    "expectedCategory": "Electronics",
+    "explanation": "Installment text exact repeat with dash variant; tests normalization of installment phrasing."
+  },
+  {
+    "id": "case-003-similar-description-different-category-groceries",
+    "description": "HEALTHY OPTIONS TAGUIG PH",
+    "amountMinor": -52900,
+    "date": "2026-07-08",
+    "expectedCategory": "Groceries",
+    "explanation": "Similar description to HEALTHY OPTIONS vs GREATFIT but different category Groceries."
+  },
+  {
+    "id": "case-004-similar-description-health-fitness",
+    "description": "GREATFIT MAKERS-HO PASIG CITY PH",
+    "amountMinor": -185900,
+    "date": "2026-07-06",
+    "expectedCategory": "Health & Fitness",
+    "explanation": "Similar token overlap but distinct category Health & Fitness."
+  },
+  {
+    "id": "case-005-unseen-merchant",
+    "description": "UNKNOWN MERCHANT XYZ QUEZON CITY PH",
+    "amountMinor": -50000,
+    "date": "2026-07-15",
+    "expectedCategory": "unknown",
+    "explanation": "Unseen merchant not in history; should be unknown or low confidence."
+  },
+  {
+    "id": "case-006-installment-ikea",
+    "description": "IKEA PASAY PH - installment 2 of 3",
+    "amountMinor": -354700,
+    "date": "2026-07-29",
+    "expectedCategory": "Home & Garden",
+    "explanation": "Installment text with KLOOK-like amount but Home & Garden."
+  },
+  {
+    "id": "case-007-fee",
+    "description": "MONTHLY MEMBERSHIP FEE",
+    "amountMinor": -20000,
+    "date": "2026-07-29",
+    "expectedCategory": "Fees",
+    "explanation": "Fee row should map to Fees; exact match."
+  },
+  {
+    "id": "case-008-category-ambiguity-shopee-vs-other",
+    "description": "SHOPEE PH MANDALUYONG PH",
+    "amountMinor": -9999,
+    "date": "2026-07-10",
+    "expectedCategory": "Shopping",
+    "explanation": "Same description as Shopping but tiny amount similar to Other split cases; tests amount similarity vs description dominance. Expected Shopping due to exact description."
+  },
+  {
+    "id": "case-009-fast-food-mcdonalds",
+    "description": "MCDO 781 BALAGTAS BALAGTAS PH",
+    "amountMinor": -13800,
+    "date": "2026-07-05",
+    "expectedCategory": "Fast Food",
+    "explanation": "Fast Food exact repeat."
+  },
+  {
+    "id": "case-010-travel-klook",
+    "description": "KLOOK FLICKET TAGUIG PH",
+    "amountMinor": -373250,
+    "date": "2026-07-09",
+    "expectedCategory": "Travel",
+    "explanation": "Travel Klook exact; but also Other split for same description with different payee. Baseline exact will be ambiguous if same description maps to two categories. In real history wallet-024 Travel and wallet-025 Other both have KLOOK FLICKET but Other is Travel companion payee variant. This tests ambiguity."
+  },
+  {
+    "id": "case-011-grab-transport",
+    "description": "GRAB PASIG CITY PH",
+    "amountMinor": -12500,
+    "date": "2026-07-27",
+    "expectedCategory": "Transportation",
+    "explanation": "Transportation exact repeat."
+  },
+  {
+    "id": "case-012-fuel-shell",
+    "description": "SHELL-EMERIGOLD-MALOLO BULACAN PH",
+    "amountMinor": -140000,
+    "date": "2026-07-09",
+    "expectedCategory": "Fuel",
+    "explanation": "Fuel exact repeat."
+  },
+  {
+    "id": "case-013-health-mercury",
+    "description": "CLDCMERCURYDRUG3018 RIZAL PH",
+    "amountMinor": -5250,
+    "date": "2026-07-10",
+    "expectedCategory": "Health",
+    "explanation": "Health Mercury Drug repeat but with different amount (-52.50 vs -998). Tests amount-insensitive exact description."
+  },
+  {
+    "id": "case-014-restaurants-contis",
+    "description": "CONTIS MALOLOS BULACAN PH",
+    "amountMinor": -405402,
+    "date": "2026-07-04",
+    "expectedCategory": "Restaurants",
+    "explanation": "Restaurants exact repeat."
+  },
+  {
+    "id": "case-015-phone-globe",
+    "description": "GLOBE-BILLSPAY TAGUIG CITY PH",
+    "amountMinor": -99900,
+    "date": "2026-07-08",
+    "expectedCategory": "Phone & Internet",
+    "explanation": "Phone & Internet exact repeat."
+  },
+  {
+    "id": "case-016-unseen-with-similar-tokens",
+    "description": "SHOPEE MALL MANDALUYONG PH",
+    "amountMinor": -10000,
+    "date": "2026-07-12",
+    "expectedCategory": "Shopping",
+    "explanation": "Similar tokens to SHOPEE but slightly different; token overlap should still propose Shopping with high score (>0.6) unless low confidence."
+  },
+  {
+    "id": "case-017-malformed-provider-sim",
+    "description": "ACE HARDWARE-MALOLOS BULACAN PH - installment 1 of 3",
+    "amountMinor": -163260,
+    "date": "2026-07-29",
+    "expectedCategory": "Home & Garden",
+    "explanation": "If provider returns hallucinated category, should be marked provider_malformed and needs_review. Fake provider simulates malformed for ACE."
+  },
+  {
+    "id": "case-018-unavailable-provider-sim",
+    "description": "WDEPT STORE-MALOLOS BU BULACAN PH",
+    "amountMinor": -109900,
+    "date": "2026-07-09",
+    "expectedCategory": "Shopping",
+    "explanation": "Simulate provider unavailable for this row; expected provider_unavailable outcome. Fake provider will timeout."
+  },
+  {
+    "id": "case-019-low-confidence-unseen",
+    "description": "RANDOM BOUTIQUE MAKATI PH",
+    "amountMinor": -75000,
+    "date": "2026-07-20",
+    "expectedCategory": "unknown",
+    "explanation": "Unseen boutique with no history match; should be unknown/low confidence."
+  },
+  {
+    "id": "case-020-split-derived-ikea-other",
+    "description": "IKEA PASAY PH - installment 2 of 3",
+    "amountMinor": -104700,
+    "date": "2026-07-29",
+    "expectedCategory": "Other",
+    "explanation": "Split-derived case: same description as Home & Garden IKEA but amount corresponds to Other split (1047 vs 2500). Ambiguous amount should not leak source_row_id; retrieval should surface both categories. Expected Other if amount similarity weighted, but acceptable if proposal is Home & Garden with needs_review."
+  }
+]

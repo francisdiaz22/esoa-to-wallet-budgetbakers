@@ -1,0 +1,191 @@
+{
+  "recordedAt": "2026-08-30",
+  "specVersion": "wallet-rest-2026-08-30-sanitized",
+  "baseUrl": "https://rest.budgetbakers.com/wallet",
+  "authentication": "Authorization: Bearer <token>",
+  "pagination": {
+    "limitParam": "limit",
+    "offsetParam": "offset",
+    "maxLimit": 200,
+    "nextOffsetField": "nextOffset"
+  },
+  "errorHandling": {
+    "initialSync": { "status": 409, "retryMinutesField": "retryAfterMinutes" },
+    "rateLimit": { "status": 429, "retryAfterHeader": "Retry-After" },
+    "auth": [401, 403]
+  },
+  "operations": [
+    {
+      "operationId": "listAccounts",
+      "method": "GET",
+      "path": "/accounts",
+      "description": "List wallet accounts with pagination and writable flag",
+      "parameters": [
+        { "name": "limit", "in": "query", "type": "integer", "maximum": 200 },
+        { "name": "offset", "in": "query", "type": "integer" }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "required": ["accounts"],
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "currency", "writable"],
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "currency": { "type": "string", "enum": ["PHP"] },
+                "writable": { "type": "boolean" },
+                "type": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "limit": { "type": "integer" },
+              "offset": { "type": "integer" },
+              "nextOffset": { "type": "integer" }
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "operationId": "listCategories",
+      "method": "GET",
+      "path": "/categories",
+      "description": "List wallet categories with hierarchy and group flag",
+      "parameters": [
+        { "name": "limit", "in": "query", "type": "integer", "maximum": 200 },
+        { "name": "offset", "in": "query", "type": "integer" }
+      ],
+      "responseSchema": {
+        "type": "object",
+        "required": ["categories"],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name"],
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "parentId": { "type": "string" },
+                "isGroup": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "limit": { "type": "integer" },
+              "offset": { "type": "integer" },
+              "nextOffset": { "type": "integer" }
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "operationId": "createRecords",
+      "method": "POST",
+      "path": "/records",
+      "description": "Batch create records; non-atomic per-item results correlated by inputIndex",
+      "requestSchema": {
+        "type": "object",
+        "required": ["records"],
+        "properties": {
+          "records": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "accountId",
+                "categoryId",
+                "amount",
+                "currency",
+                "date",
+                "description"
+              ],
+              "properties": {
+                "accountId": { "type": "string" },
+                "categoryId": { "type": "string" },
+                "amount": {
+                  "type": "integer",
+                  "description": "signed minor centavos"
+                },
+                "currency": { "type": "string", "enum": ["PHP"] },
+                "date": { "type": "string", "format": "date" },
+                "description": { "type": "string", "maxLength": 500 },
+                "payee": { "type": "string", "maxLength": 200 },
+                "note": { "type": "string", "maxLength": 500 },
+                "reference": { "type": "string", "maxLength": 200 }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "responseSchema": {
+        "type": "object",
+        "required": ["summary", "results"],
+        "properties": {
+          "summary": {
+            "type": "object",
+            "required": ["total", "succeeded", "failed"],
+            "properties": {
+              "total": { "type": "integer" },
+              "succeeded": { "type": "integer" },
+              "failed": { "type": "integer" }
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["inputIndex", "status"],
+              "properties": {
+                "inputIndex": { "type": "integer" },
+                "status": {
+                  "type": "string",
+                  "enum": ["succeeded", "client_error", "server_error"]
+                },
+                "walletRecordId": { "type": "string" },
+                "safeErrorCode": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "statusCodes": {
+        "200": "all succeeded",
+        "207": "mixed results (multi-status)",
+        "400": "all failed client_error",
+        "500": "all failed server_error",
+        "409": "initial sync pending - halt writes",
+        "429": "rate limited - honor Retry-After"
+      },
+      "moneyEncoding": "signed integer minor centavos; single adapter maps amountMinor -> envelope amount; no float; BDO expense sign negative preserved",
+      "dateEncoding": "ISO calendar date YYYY-MM-DD",
+      "batchMaximum": 100,
+      "correlation": "inputIndex zero-based per chunk",
+      "writableAccountRepresentation": "boolean field writable=true indicates writable; never infer from name",
+      "categoryHierarchyRules": "isGroup=true indicates group/parent only; not eligible for assignment when API disallows; hierarchy via parentId",
+      "idempotencyField": "none supported; correlation only via in-memory inputIndex journal"
+    }
+  ]
+}

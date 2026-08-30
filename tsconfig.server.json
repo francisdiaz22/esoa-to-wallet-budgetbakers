@@ -13,6 +13,7 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "sourceMap": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.server.tsbuildinfo",
     "types": ["node", "vitest/globals"]
   },
   "include": ["src/server/**/*.ts"],

@@ -4,3 +4,5 @@ node_modules/
 coverage/
 *.jpg
 package-lock.json
+docs/benchmarks/report.json
+docs/benchmarks/report.md

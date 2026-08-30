@@ -31,6 +31,7 @@ tmp/
 temp/
 ocr-output/
 diagnostic-bundles/
+artifacts/
 
 # Financial documents and exports are private by default. Synthetic fixtures
 # must be explicitly allowlisted below after review.
@@ -54,3 +55,9 @@ diagnostic-bundles/
 !fixtures/synthetic/bdo/statement_page_1.jpg
 !fixtures/synthetic/bdo/statement_page_2.jpg
 !fixtures/synthetic/bdo/statement_page_3.jpg
+!fixtures/synthetic/evaluation/cases.json
+!fixtures/synthetic/review/duplicate_cases.json
+!fixtures/synthetic/review/split_cases.json
+!fixtures/synthetic/review/expected_summary.json
+!docs/benchmarks/report.json
+!docs/benchmarks/report.md

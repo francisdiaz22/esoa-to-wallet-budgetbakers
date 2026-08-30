@@ -1,0 +1,29 @@
+{
+  "description": "Synthetic split fixture — centavo-exact and intentionally invalid totals, no real data",
+  "version": "1.0.0",
+  "valid": {
+    "sourceAmountMinor": -10000,
+    "splits": [
+      { "amountMinor": -6000, "categoryName": "Shopping" },
+      { "amountMinor": -4000, "categoryName": "Food" }
+    ],
+    "expected": "valid"
+  },
+  "invalidTotal": {
+    "sourceAmountMinor": -10000,
+    "splits": [
+      { "amountMinor": -6000, "categoryName": "Shopping" },
+      { "amountMinor": -3000, "categoryName": "Food" }
+    ],
+    "expected": "split_total_mismatch"
+  },
+  "unbalancedIntermediate": {
+    "sourceAmountMinor": -10000,
+    "initialSplits": [
+      { "amountMinor": -6000, "categoryName": "Shopping" },
+      { "amountMinor": -4000, "categoryName": "Food" }
+    ],
+    "editedSplit": { "index": 0, "newAmountMinor": -5000 },
+    "expectedAfterEdit": "split_total_mismatch"
+  }
+}

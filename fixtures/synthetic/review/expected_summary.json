@@ -1,0 +1,13 @@
+{
+  "description": "Expected review summary for synthetic BDO fixture — safe synthetic fields only",
+  "version": "1.0.0",
+  "sourceChargeCount": 33,
+  "totalItemsInitial": 33,
+  "approvedExpenseTotalMinor": -3495717,
+  "expectedSplits": [
+    { "sourceRowId": "p1-r007", "splits": 2 },
+    { "sourceRowId": "p2-r015", "splits": 2 }
+  ],
+  "postSplitTotalItems": 35,
+  "postSplitApprovedTotalMinor": -3495717
+}
