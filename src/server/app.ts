@@ -15,6 +15,41 @@ export const healthState = {
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 
+function isLoopbackAuthority(authority: string | undefined): boolean {
+  if (!authority) return false;
+  try {
+    const url = new URL(`http://${authority}`);
+    return (
+      url.hostname === '127.0.0.1' ||
+      url.hostname === 'localhost' ||
+      url.hostname === '[::1]'
+    );
+  } catch {
+    return false;
+  }
+}
+
+app.use((request, response, next) => {
+  if (!isLoopbackAuthority(request.headers.host)) {
+    response
+      .status(403)
+      .json({ code: 'forbidden_host', message: 'Forbidden.' });
+    return;
+  }
+  const origin = request.headers.origin;
+  if (origin) {
+    try {
+      if (!isLoopbackAuthority(new URL(origin).host)) throw new Error();
+    } catch {
+      response
+        .status(403)
+        .json({ code: 'forbidden_origin', message: 'Forbidden.' });
+      return;
+    }
+  }
+  next();
+});
+
 app.get('/api/health', (_request, response) => {
   response.json(healthState);
 });

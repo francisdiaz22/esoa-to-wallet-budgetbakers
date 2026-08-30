@@ -13,6 +13,8 @@ describe('provider URL validation', () => {
     expect(validateLoopbackUrlSync('http://localhost:11434').ok).toBe(true);
     expect((await validateLoopbackUrl('http://127.0.0.1:11434')).ok).toBe(true);
     expect((await validateLoopbackUrl('http://localhost:11434')).ok).toBe(true);
+    const pinned = await validateLoopbackUrl('http://localhost:11434');
+    expect(pinned.ok && pinned.url.hostname).toBe('127.0.0.1');
   });
   it('rejects remote, credentialed, redirected, non-loopback destinations', async () => {
     expect(validateLoopbackUrlSync('https://example.com').ok).toBe(false);
@@ -26,6 +28,9 @@ describe('provider URL validation', () => {
     );
     expect(validateLoopbackUrlSync('ftp://127.0.0.1:11434').ok).toBe(false);
     expect((await validateLoopbackUrl('http://example.com')).ok).toBe(false);
+    expect(validateLoopbackUrlSync('http://loopback.example:11434').ok).toBe(
+      false,
+    );
   });
 });
 

@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -67,9 +67,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: No auto-tag
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
+          if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version; expected a semantic version." >&2
+            exit 1
+          fi
           echo "Manual release workflow completed verification."
           echo "To publish, run per docs/release/RELEASE.md:"
-          echo "  git tag v${{ inputs.version }} -m \"v${{ inputs.version }}\""
-          echo "  git push origin v${{ inputs.version }}"
-          echo "  gh release create v${{ inputs.version }} --title \"v${{ inputs.version }}\" --notes-file CHANGELOG.md"
+          printf '  git tag v%s -m "v%s"\n' "$RELEASE_VERSION" "$RELEASE_VERSION"
+          printf '  git push origin v%s\n' "$RELEASE_VERSION"
+          printf '  gh release create v%s --title "v%s" --notes-file CHANGELOG.md\n' "$RELEASE_VERSION" "$RELEASE_VERSION"

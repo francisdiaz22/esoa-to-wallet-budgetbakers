@@ -1,4 +1,3 @@
-import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { LIMITS } from '../ingestion/limits.js';
 import type {
@@ -76,47 +75,18 @@ export async function validateLoopbackUrl(
       message: 'Provider URL missing host.',
     };
   }
-  const hostname = normalizeHostname(hostnameRaw);
-
-  // Check IP literal
-  const ipVersion = isIP(hostname);
-  if (ipVersion !== 0) {
-    if (!isLoopbackIp(hostname)) {
-      return {
-        ok: false,
-        code: 'provider_malformed',
-        message: 'Provider URL must be loopback.',
-      };
-    }
+  const hostname = normalizeHostname(hostnameRaw).toLowerCase();
+  if (hostname === 'localhost') {
+    // Pin localhost to a literal address so validation and connection cannot be
+    // separated by DNS/hosts-file rebinding.
+    url.hostname = '127.0.0.1';
     return { ok: true, url };
   }
-
-  // For 'localhost' we need DNS resolution check
-  // Also for other hostnames, we resolve and ensure all addresses are loopback
-  // Reject link-local/private etc by same check
-  try {
-    const addrs = await lookup(hostname, { all: true });
-    if (addrs.length === 0) {
-      return {
-        ok: false,
-        code: 'provider_malformed',
-        message: 'Provider host did not resolve.',
-      };
-    }
-    for (const a of addrs) {
-      if (!isLoopbackIp(a.address)) {
-        return {
-          ok: false,
-          code: 'provider_malformed',
-          message: 'Provider host must resolve to loopback.',
-        };
-      }
-    }
-  } catch {
+  if (!isLoopbackIp(hostname)) {
     return {
       ok: false,
       code: 'provider_malformed',
-      message: 'Provider host resolution failed.',
+      message: 'Provider URL must use localhost or a loopback IP literal.',
     };
   }
   return { ok: true, url };
@@ -163,23 +133,16 @@ export function validateLoopbackUrlSync(
       code: 'provider_malformed',
       message: 'Provider URL missing host.',
     };
-  const hostname = normalizeHostname(hostnameRaw);
-  const ipVersion = isIP(hostname);
-  if (ipVersion !== 0) {
-    if (!isLoopbackIp(hostname))
-      return {
-        ok: false,
-        code: 'provider_malformed',
-        message: 'Provider URL must be loopback.',
-      };
+  const hostname = normalizeHostname(hostnameRaw).toLowerCase();
+  if (hostname === 'localhost') {
+    url.hostname = '127.0.0.1';
     return { ok: true, url };
   }
-  // For sync check, allow localhost literal without DNS; but full check done async before connect
-  if (hostname.toLowerCase() === 'localhost') return { ok: true, url };
+  if (isLoopbackIp(hostname)) return { ok: true, url };
   return {
     ok: false,
     code: 'provider_malformed',
-    message: 'Provider host must be loopback.',
+    message: 'Provider URL must use localhost or a loopback IP literal.',
   };
 }
 
