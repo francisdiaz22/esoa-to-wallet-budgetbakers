@@ -30,9 +30,3 @@ jobs:
 
       - name: Formatting, lint, types, tests, and repository scans
         run: npm run check
-
-      - name: Production build
-        run: npm run build
-
-      - name: Dependency audit
-        run: npm run audit

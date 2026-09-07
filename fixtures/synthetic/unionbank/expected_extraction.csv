@@ -1,0 +1,6 @@
+statement_id;source_row_id;page;source_order;include;sale_date;description;raw_amount;expected_signed_amount;currency;reference;exclusion_reason
+UNIONBANK_20260805;p1-r001;1;2;true;2026-08-01;SYNTHETIC COFFEE SHOP;125;-125;PHP;;
+UNIONBANK_20260805;p1-r002;1;3;true;2026-08-02;SYNTHETIC STORE, MANILA;1,234.5;-1234.5;PHP;;
+UNIONBANK_20260805;p1-x001;1;4;false;2026-08-03;SYNTHETIC CREDIT;-500.00;;PHP;;other
+UNIONBANK_20260805;p1-r003;1;5;true;2026-08-04;SYNTHETIC PHARMACY;49.90;-49.90;PHP;;
+UNIONBANK_20260805;p1-r004;1;6;true;2026-08-05;SYNTHETIC TRANSIT;80.00;-80.00;PHP;;

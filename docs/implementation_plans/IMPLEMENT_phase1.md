@@ -13,7 +13,7 @@ database, or make Wallet API calls. A row may be displayed as an extracted
 record or an excluded source row; it is not a Phase 1 "approved" transaction.
 
 Read this document together with [IMPLEMENTATION.md](IMPLEMENTATION.md),
-[SECURITY.md](SECURITY.md), and ADRs 0001 and 0002 before making changes.
+[SECURITY.md](../../SECURITY.md), and ADRs 0001 and 0002 before making changes.
 
 ## Fixed decisions for this phase
 

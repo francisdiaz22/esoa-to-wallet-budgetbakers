@@ -6,6 +6,8 @@ const approvedFixtures = new Set([
   'fixtures/synthetic/bdo/statement_page_1.jpg',
   'fixtures/synthetic/bdo/statement_page_2.jpg',
   'fixtures/synthetic/bdo/statement_page_3.jpg',
+  'fixtures/synthetic/unionbank/statement.csv',
+  'fixtures/synthetic/unionbank/expected_extraction.csv',
 ]);
 const privateExtensions =
   /\.(?:bmp|csv|gif|heic|jpe?g|ocr\.txt|pdf|png|tiff?|tsv|webp)$/i;

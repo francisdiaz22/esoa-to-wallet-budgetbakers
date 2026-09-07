@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import request from 'supertest';
+import { parse as parseCsv } from 'csv-parse/sync';
 import { app } from '../app.js';
 import { LIMITS } from '../ingestion/limits.js';
+
+type UnionBankOracleRow = {
+  statement_id: string;
+  source_row_id: string;
+  page: string;
+  source_order: string;
+  include: string;
+  sale_date: string;
+  description: string;
+  raw_amount: string;
+  expected_signed_amount: string;
+  currency: string;
+  exclusion_reason: string;
+};
 
 function makeBlankPdf(pageCount: number): Buffer {
   const firstPageObject = 3;
@@ -37,6 +54,109 @@ function makeBlankPdf(pageCount: number): Buffer {
 
 // Ensure fake OCR enabled for tests (NODE_ENV=test already)
 describe('session API', () => {
+  it('imports the synthetic UnionBank CSV and matches its row-level oracle', async () => {
+    const fixturePath = resolve(
+      process.cwd(),
+      'fixtures/synthetic/unionbank/statement.csv',
+    );
+    const oraclePath = resolve(
+      process.cwd(),
+      'fixtures/synthetic/unionbank/expected_extraction.csv',
+    );
+    const fixture = readFileSync(fixturePath);
+    const fixtureLines = fixture.toString('utf8').trim().split(/\r?\n/);
+    const oracle = parseCsv(readFileSync(oraclePath, 'utf8'), {
+      bom: true,
+      columns: true,
+      delimiter: ';',
+      skip_empty_lines: true,
+    }) as UnionBankOracleRow[];
+    const expectedIncluded = oracle.filter((row) => row.include === 'true');
+    const expectedExcluded = oracle.filter((row) => row.include === 'false');
+
+    const res = await request(app)
+      .post('/api/session/import')
+      .attach('statement', fixture, {
+        filename: 'unionbank-synthetic.csv',
+        contentType: 'text/csv',
+      });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body.parserId).toBe('unionbank-ph-csv-v1');
+    expect(res.body.statementId).toBe('UNIONBANK_20260805');
+    expect(res.body.sourceFormat).toBe('csv');
+    expect(res.body.summary.proposedCount).toBe(expectedIncluded.length);
+    expect(res.body.summary.excludedCount).toBe(expectedExcluded.length);
+    expect(res.body.summary.expenseTotal).toBe(1489.4);
+    expect(res.body.transactions).toHaveLength(expectedIncluded.length);
+    expect(res.body.excludedRows).toHaveLength(expectedExcluded.length);
+
+    expect(
+      res.body.transactions.map(
+        (transaction: {
+          sourceRowId: string;
+          statementId: string;
+          date: string;
+          description: string;
+          amount: number;
+          currency: string;
+          source: {
+            format: string;
+            bankParserId: string;
+            page: number;
+            row: number;
+            rawText: string;
+          };
+        }) => [
+          transaction.statementId,
+          transaction.sourceRowId,
+          transaction.source.page,
+          transaction.source.row,
+          transaction.date,
+          transaction.description,
+          transaction.amount,
+          transaction.currency,
+          transaction.source.format,
+          transaction.source.bankParserId,
+          transaction.source.rawText,
+        ],
+      ),
+    ).toEqual(
+      expectedIncluded.map((row) => [
+        row.statement_id,
+        row.source_row_id,
+        Number(row.page),
+        Number(row.source_order),
+        row.sale_date,
+        row.description,
+        Number(row.expected_signed_amount),
+        row.currency,
+        'csv',
+        'unionbank-ph-csv-v1',
+        fixtureLines[Number(row.source_order) - 1],
+      ]),
+    );
+    expect(
+      res.body.excludedRows.map(
+        (row: {
+          sourceRowId: string;
+          page: number;
+          rawText: string;
+          exclusionReason: string;
+        }) => [row.sourceRowId, row.page, row.rawText, row.exclusionReason],
+      ),
+    ).toEqual(
+      expectedExcluded.map((row) => [
+        row.source_row_id,
+        Number(row.page),
+        fixtureLines[Number(row.source_order) - 1],
+        row.exclusion_reason,
+      ]),
+    );
+
+    await request(app).delete(`/api/session/${res.body.sessionId}`);
+  });
+
   it('POST /api/session/import with statementPages 3 images returns 201 with 33 proposals', async () => {
     // Create minimal JPEG buffers: real fixture images are not needed because FakeOcr handles any image buffer
     // Use valid JPEG magic + dummy content

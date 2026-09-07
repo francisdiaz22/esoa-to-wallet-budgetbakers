@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { ExtractedDocument } from './contracts.js';
 import {
   parseUnionBankAmountToMinorUnits,
@@ -7,12 +9,11 @@ import {
 } from './unionBankCsvParser.js';
 
 function syntheticDocument(): ExtractedDocument {
-  const texts = [
-    'DATE,DESCRIPTION,CURRENCY,AMOUNT,,,',
-    '08/01/2026,SYNTHETIC COFFEE SHOP,PHP,125,,,',
-    '08/02/2026,"SYNTHETIC STORE, MANILA",PHP,"1,234.5",,,',
-    '08/03/2026,SYNTHETIC CREDIT,PHP,-500.00,,,',
-  ];
+  const text = readFileSync(
+    resolve(process.cwd(), 'fixtures/synthetic/unionbank/statement.csv'),
+    'utf8',
+  );
+  const texts = text.trim().split(/\r?\n/);
   return {
     sourceFormat: 'csv',
     pages: 1,
@@ -33,10 +34,10 @@ describe('UnionBank CSV parser', () => {
     });
     expect(
       parsed.transactions.map((transaction) => transaction.amount),
-    ).toEqual([-125, -1234.5]);
+    ).toEqual([-125, -1234.5, -49.9, -80]);
     expect(parsed.transactions[1].description).toBe('SYNTHETIC STORE, MANILA');
     expect(parsed.excludedRows).toHaveLength(1);
-    expect(parsed.recognizedCandidateCount).toBe(3);
+    expect(parsed.recognizedCandidateCount).toBe(5);
   });
 
   it('normalizes full dates and variable decimal precision exactly', () => {
@@ -53,5 +54,30 @@ describe('UnionBank CSV parser', () => {
     const document = syntheticDocument();
     document.lines[0].text = 'date,payee,value';
     expect(parser.canParse(document).matched).toBe(false);
+  });
+
+  it('reports malformed recognized rows without creating a transaction', () => {
+    const parser = new UnionBankPhCsvParser();
+    const document = syntheticDocument();
+    document.lines.push({
+      page: 1,
+      order: 7,
+      text: '08/06/2026,SYNTHETIC BROKEN ROW,PHP,not-money',
+    });
+
+    const parsed = parser.parse(document, {
+      statementId: 'UNIONBANK_20260806',
+      statementYear: 2026,
+      currency: 'PHP',
+    });
+
+    expect(parsed.transactions).toHaveLength(4);
+    expect(parsed.excludedRows).toHaveLength(1);
+    expect(parsed.recognizedCandidateCount).toBe(6);
+    expect(parsed.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'malformed_row', severity: 'error' }),
+      ]),
+    );
   });
 });
