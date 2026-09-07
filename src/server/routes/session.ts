@@ -25,8 +25,8 @@ import {
 } from '../review/contracts.js';
 import { z } from 'zod';
 import { globalWalletCommitService } from '../wallet/commitService.js';
+import { WalletTokenSchema } from '../wallet/contracts.js';
 import { isDemoSession, unmarkDemoSession } from '../demo/demoService.js';
-// WalletTokenSchema validated inside commitService; no direct import needed
 
 // Unit/API tests inject deterministic OCR. Production always uses local Tesseract.
 const testOcrEngine =
@@ -38,6 +38,13 @@ const ingestionService = createIngestionService(globalSessionStore, {
 });
 
 const router = Router();
+
+const WalletDryRunBodySchema = z
+  .object({
+    paymentDate: z.iso.date(),
+    descriptionId: z.string().trim().min(1).max(80).optional(),
+  })
+  .strict();
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1223,9 +1230,7 @@ function blockDemoIfNeeded(
   return false;
 }
 
-const WalletConnectBodySchema = z
-  .object({ token: z.string().min(10).max(500) })
-  .strict();
+const WalletConnectBodySchema = z.object({ token: WalletTokenSchema }).strict();
 const WalletSelectionBodySchema = z
   .object({
     walletAccountId: z.string().min(1).max(200),
@@ -1260,7 +1265,8 @@ router.post('/:id/wallet/connect', async (req, res) => {
     return errorResponse(res, {
       status: 400,
       code: 'bad_request',
-      message: 'Token required.',
+      message:
+        'Wallet token must be 10–4096 characters and contain only letters, numbers, hyphens, underscores, and periods.',
       stage: 'validated',
       requestId,
     });
@@ -1385,7 +1391,21 @@ router.post('/:id/wallet/dry-run', (req, res) => {
       requestId,
     });
   if (blockDemoIfNeeded(id, res, requestId)) return;
-  const r = globalWalletCommitService.createDryRun(id);
+  const parsed = WalletDryRunBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success)
+    return errorResponse(res, {
+      status: 400,
+      code: 'bad_request',
+      message:
+        'Payment date must be a valid date and description ID must be between 1 and 80 characters.',
+      stage: 'validated',
+      requestId,
+    });
+  const r = globalWalletCommitService.createDryRun(
+    id,
+    parsed.data.descriptionId,
+    parsed.data.paymentDate,
+  );
   if ('error' in r)
     return errorResponse(res, {
       status: r.error.status,

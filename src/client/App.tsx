@@ -90,6 +90,14 @@ export function App() {
   const [catStatus, setCatStatus] = useState<Phase2Status>('idle');
   const [catResult, setCatResult] = useState<CategorizationResult | null>(null);
   const [catError, setCatError] = useState<ApiError | null>(null);
+  const [descriptionId, setDescriptionId] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => {
+    const now = new Date();
+    const localDate = new Date(
+      now.getTime() - now.getTimezoneOffset() * 60_000,
+    );
+    return localDate.toISOString().slice(0, 10);
+  });
 
   // Phase 3 review states
   const [reviewItems, setReviewItems] = useState<ReviewItem[] | null>(null);
@@ -223,6 +231,7 @@ export function App() {
       setCatResult(null);
       setCatStatus('idle');
       setCatError(null);
+      setDescriptionId('');
       setReviewItems(null);
       setReviewSummary(null);
       setReviewVersion(null);
@@ -740,11 +749,20 @@ export function App() {
 
   const handleWalletDryRun = async () => {
     if (!result) return;
+    if (!paymentDate) {
+      setWalletError({
+        code: 'payment_date_required',
+        message: 'Select a payment date before creating the dry-run.',
+      });
+      return;
+    }
     setWalletSetupStatus('pending');
     setWalletError(null);
     try {
       const dry = await createWalletDryRun(
         (result as unknown as { sessionId: string }).sessionId,
+        paymentDate,
+        descriptionId.trim() || undefined,
       );
       setWalletDryRun(dry);
       setWalletSetupStatus('success');
@@ -974,6 +992,7 @@ export function App() {
     setCatResult(null);
     setCatStatus('idle');
     setCatError(null);
+    setDescriptionId('');
     setReviewItems(null);
     setReviewSummary(null);
     setReviewVersion(null);
@@ -3407,6 +3426,105 @@ export function App() {
             </section>
           )}
 
+          <section
+            aria-labelledby="wallet-transaction-details-title"
+            style={{
+              marginTop: '1.5rem',
+              background: '#fcfdf9',
+              border: '1px solid #d4dbd4',
+              borderRadius: '1rem',
+              padding: '1.5rem',
+            }}
+          >
+            <h2
+              id="wallet-transaction-details-title"
+              style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
+            >
+              Wallet transaction details
+            </h2>
+            <label
+              htmlFor="payment-date"
+              style={{
+                display: 'block',
+                fontWeight: 600,
+                marginBottom: '0.35rem',
+              }}
+            >
+              Payment date
+            </label>
+            <p
+              id="payment-date-help"
+              style={{
+                fontSize: '0.85rem',
+                color: '#69736c',
+                margin: '0 0 0.75rem',
+              }}
+            >
+              This will be the final transaction date in Wallet. The original
+              imported date will be added at the start of each description.
+            </p>
+            <input
+              id="payment-date"
+              type="date"
+              value={paymentDate}
+              onChange={(event) => setPaymentDate(event.target.value)}
+              required
+              aria-describedby="payment-date-help"
+              style={{
+                display: 'block',
+                width: '100%',
+                maxWidth: '16rem',
+                boxSizing: 'border-box',
+                padding: '0.5rem 0.75rem',
+                borderRadius: 8,
+                border: '1px solid #c3cec5',
+                marginBottom: '1.25rem',
+              }}
+            />
+            <label
+              htmlFor="description-id"
+              style={{
+                display: 'block',
+                fontWeight: 600,
+                marginBottom: '0.35rem',
+              }}
+            >
+              Unique description ID (optional)
+            </label>
+            <p
+              id="description-id-help"
+              style={{
+                fontSize: '0.85rem',
+                color: '#69736c',
+                margin: '0 0 0.75rem',
+              }}
+            >
+              Enter an ID to add it to every imported transaction description.
+              It must be unique so you can search for this import in the Wallet
+              app.
+            </p>
+            <input
+              id="description-id"
+              type="text"
+              value={descriptionId}
+              onChange={(event) => setDescriptionId(event.target.value)}
+              maxLength={80}
+              placeholder="For example: BDO-2026-07-29-01"
+              aria-label="Unique description ID (optional)"
+              aria-describedby="description-id-help"
+              autoComplete="off"
+              style={{
+                display: 'block',
+                width: '100%',
+                maxWidth: '32rem',
+                boxSizing: 'border-box',
+                padding: '0.5rem 0.75rem',
+                borderRadius: 8,
+                border: '1px solid #c3cec5',
+              }}
+            />
+          </section>
+
           {/* Phase 3: Review Workspace */}
           {reviewItems && reviewSummary && (
             <section
@@ -4655,6 +4773,8 @@ export function App() {
                   disabled={isDemo}
                   placeholder="Paste Wallet Bearer token"
                   autoComplete="off"
+                  minLength={10}
+                  maxLength={4096}
                   style={{
                     padding: '0.5rem 0.75rem',
                     borderRadius: 8,

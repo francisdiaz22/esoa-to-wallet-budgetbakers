@@ -313,9 +313,9 @@ describe('wallet routes integration', () => {
       .post(`/api/session/${sessionId}/wallet/selection`)
       .send({ walletAccountId: 'acc-1', mappings });
     expect(sel.status).toBe(200);
-    const dry = await request(app).post(
-      `/api/session/${sessionId}/wallet/dry-run`,
-    );
+    const dry = await request(app)
+      .post(`/api/session/${sessionId}/wallet/dry-run`)
+      .send({ paymentDate: '2026-08-15' });
     expect(dry.status).toBe(201);
     expect(dry.body.notSentYet).toBe(true);
     expect(dry.body.count).toBe(35);
@@ -351,9 +351,9 @@ describe('wallet routes integration', () => {
     await request(app)
       .post(`/api/session/${sessionId}/wallet/selection`)
       .send({ walletAccountId: 'acc-1', mappings });
-    const dry = await request(app).post(
-      `/api/session/${sessionId}/wallet/dry-run`,
-    );
+    const dry = await request(app)
+      .post(`/api/session/${sessionId}/wallet/dry-run`)
+      .send({ paymentDate: '2026-08-15' });
     const snapId = dry.body.snapshotId;
     // Prepare fake mixed response: first chunk has mixed, but we have single chunk 35 -> create mixed with 1 success 1 client_error etc for first 2, rest succeeded
     const mixed = Array.from({ length: 35 }, (_, i) => {
@@ -452,9 +452,9 @@ describe('wallet routes integration', () => {
     await request(app)
       .post(`/api/session/${sessionId}/wallet/selection`)
       .send({ walletAccountId: 'acc-1', mappings });
-    const dry = await request(app).post(
-      `/api/session/${sessionId}/wallet/dry-run`,
-    );
+    const dry = await request(app)
+      .post(`/api/session/${sessionId}/wallet/dry-run`)
+      .send({ paymentDate: '2026-08-15' });
     await request(app).post(
       `/api/session/${sessionId}/wallet/commit/${dry.body.snapshotId}`,
     );

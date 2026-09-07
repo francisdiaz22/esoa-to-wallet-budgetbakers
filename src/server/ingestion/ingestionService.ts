@@ -22,6 +22,7 @@ import {
 } from './extractors.js';
 import { ParserRegistry } from './parserRegistry.js';
 import { bdoParser } from './bdoParser.js';
+import { unionBankCsvParser } from './unionBankCsvParser.js';
 import { validateParsedStatement, assembleResult } from './validation.js';
 
 export type ServiceError = {
@@ -47,7 +48,7 @@ export class IngestionService {
     this.ocrEngine = ocrEngine ?? new LocalTesseractOcrEngine();
     this.imageOcrExtractor = new ImageOcrExtractor(this.ocrEngine);
     this.scannedPdfOcrExtractor = new ScannedPdfOcrExtractor(this.ocrEngine);
-    this.parserRegistry = new ParserRegistry([bdoParser]);
+    this.parserRegistry = new ParserRegistry([bdoParser, unionBankCsvParser]);
   }
 
   /** Content-based validation + routing */
@@ -383,7 +384,10 @@ export class IngestionService {
 
     let parsed;
     try {
-      const context = resolveBdoParserContext(extractionDoc);
+      const context = resolveParserContext(
+        extractionDoc,
+        registryResult.parser.id,
+      );
       parsed = registryResult.parser.parse(extractionDoc, context);
     } catch {
       return fail({
@@ -469,4 +473,26 @@ export function resolveBdoParserContext(
     statementYear: year,
     currency: 'PHP',
   };
+}
+
+export function resolveParserContext(
+  document: ExtractedDocument,
+  parserId: string,
+): ParserContext {
+  if (parserId === unionBankCsvParser.id) {
+    const dates = document.lines
+      .flatMap((line) => line.text.match(/\b\d{2}\/\d{2}\/\d{4}\b/g) ?? [])
+      .map((raw) => {
+        const [month, day, year] = raw.split('/');
+        return { raw, key: `${year}${month}${day}`, year: Number(year) };
+      })
+      .sort((a, b) => b.key.localeCompare(a.key));
+    if (dates.length === 0) throw new Error('missing_statement_context');
+    return {
+      statementId: `UNIONBANK_${dates[0].key}`,
+      statementYear: dates[0].year,
+      currency: 'PHP',
+    };
+  }
+  return resolveBdoParserContext(document);
 }

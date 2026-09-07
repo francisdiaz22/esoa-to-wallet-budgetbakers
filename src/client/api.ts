@@ -854,10 +854,16 @@ export async function saveWalletSelection(
 
 export async function createWalletDryRun(
   sessionId: string,
+  paymentDate: string,
+  descriptionId?: string,
 ): Promise<WalletDryRun> {
   const res = await fetch(
     `/api/session/${encodeURIComponent(sessionId)}/wallet/dry-run`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ paymentDate, descriptionId }),
+    },
   );
   if (!res.ok) {
     const err = (await res.json().catch(() => ({

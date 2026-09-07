@@ -581,6 +581,8 @@ export class WalletCommitService {
 
   createDryRun(
     sessionId: string,
+    descriptionId?: string,
+    paymentDate?: string,
   ):
     | { dryRun: import('./contracts.js').WalletDryRunResponse }
     | { error: { status: number; code: string; message: string } } {
@@ -726,7 +728,20 @@ export class WalletCommitService {
       };
 
     // Map stable order is already derived order (source order then split child)
-    const orderedItems = derived.items;
+    const descriptionSuffix = descriptionId ? ` [${descriptionId}]` : '';
+    const originalItemsById = new Map(
+      derived.items.map((item) => [item.reviewItemId, item]),
+    );
+    const orderedItems = derived.items.map((item) => {
+      const datePrefix = paymentDate ? `${item.date} - ` : '';
+      const availableDescriptionLength =
+        500 - datePrefix.length - descriptionSuffix.length;
+      return {
+        ...item,
+        date: paymentDate ?? item.date,
+        description: `${datePrefix}${item.description.slice(0, availableDescriptionLength)}${descriptionSuffix}`,
+      };
+    });
     // Build payloads and hashes
     const payloads: Record<
       string,
@@ -753,7 +768,7 @@ export class WalletCommitService {
         };
       payloads[it.reviewItemId] = res.record as never;
       fieldHashes[it.reviewItemId] = hashCanonicalFields(
-        it,
+        originalItemsById.get(it.reviewItemId)!,
         phase4.selection.walletAccountId,
         catId,
       );

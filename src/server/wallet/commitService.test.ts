@@ -13,6 +13,7 @@ import { FakeWalletClient } from './client.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { LIMITS } from '../ingestion/limits.js';
 
 function resetStores() {
   globalSessionStore.clearAll();
@@ -328,12 +329,20 @@ describe('wallet commit service - dry-run and commit', () => {
     );
     expect('ok' in sel).toBe(true);
 
-    const dry = globalWalletCommitService.createDryRun(sessionId);
+    const dry = globalWalletCommitService.createDryRun(
+      sessionId,
+      'BDO-2026-07-29-01',
+      '2026-08-15',
+    );
     expect('dryRun' in dry).toBe(true);
     if ('dryRun' in dry) {
       expect(dry.dryRun.count).toBe(35);
       expect(dry.dryRun.totalMinor).toBe(-3495717);
       expect(dry.dryRun.notSentYet).toBe(true);
+      expect(dry.dryRun.items[0].description).toMatch(
+        /^2026-07-\d{2} - .* \[BDO-2026-07-29-01\]$/,
+      );
+      expect(dry.dryRun.items[0].date).toBe('2026-08-15');
       expect(fake.capturedRequests.length).toBe(0); // zero create calls on dry-run
 
       // Commit with batch max 100 so single chunk; mixed 207
@@ -341,6 +350,14 @@ describe('wallet commit service - dry-run and commit', () => {
         sessionId,
         dry.dryRun.snapshotId,
       );
+      expect(fake.capturedRequests.length).toBeGreaterThan(0);
+      expect(
+        fake.capturedRequests
+          .flat()
+          .every((record) =>
+            record.description.endsWith(' [BDO-2026-07-29-01]'),
+          ),
+      ).toBe(true);
       expect('journal' in commit).toBe(true);
       if ('journal' in commit) {
         // Since fake only had one chunk response for 2 items but our commit has 35 items, the fake will return default succeeded for 35, but we forced first chunk to be mixed with 2 items? However our chunk size is 35, so our fake's first response is for 35 items but we gave only 2 items response -> will cause index mismatch -> unknown
@@ -641,6 +658,8 @@ describe('wallet commit service - dry-run and commit', () => {
     setWalletClientForTests(fake);
     await globalWalletCommitService.retry(sessionId);
     expect(fake.capturedRequests).toHaveLength(1);
-    expect(fake.capturedRequests[0]).toHaveLength(100);
+    expect(fake.capturedRequests[0]).toHaveLength(
+      LIMITS.WALLET_CREATE_BATCH_MAX,
+    );
   });
 });

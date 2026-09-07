@@ -17,8 +17,10 @@ describe('wallet openapi fixture', () => {
     expect(ops.has('listAccounts')).toBe(true);
     expect(ops.has('listCategories')).toBe(true);
     expect(ops.has('createRecords')).toBe(true);
+    expect(ops.get('listAccounts')!.path).toBe('/v1/api/accounts');
+    expect(ops.get('listCategories')!.path).toBe('/v1/api/categories');
     const create = ops.get('createRecords')!;
-    expect(create.path).toBe('/records');
+    expect(create.path).toBe('/v1/api/records');
     expect(create.requestSchema.properties.records.maxItems).toBe(
       LIMITS.WALLET_CREATE_BATCH_MAX,
     );
