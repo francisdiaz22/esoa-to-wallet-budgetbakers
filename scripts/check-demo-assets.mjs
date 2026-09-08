@@ -32,6 +32,8 @@ const forbiddenPatterns = [
 const demoPaths = [
   'src/client/onboarding',
   'src/client/demo',
+  // The canonical demo banner is returned by the demo API route.
+  'src/server/demo',
   'fixtures/synthetic',
   'docs/guides',
   'docs/benchmarks',
@@ -88,6 +90,7 @@ for (const base of demoPaths) {
 // Check onboarding/demo source contains required synthetic labels
 const onboardingFiles = walk('src/client/onboarding').concat(
   walk('src/client/demo'),
+  walk('src/server/demo'),
 );
 if (onboardingFiles.length > 0) {
   for (const f of onboardingFiles) {
