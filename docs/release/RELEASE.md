@@ -36,7 +36,7 @@ Additional manual verification:
 3. **Diagnostics:** Preview + download produces bounded JSON (<64 KiB), contains no prohibited fields even when session state contains them, adversarial secret strings do not leak, and is explicit/local-only/not persisted.
 4. **Benchmark artifact:** `docs/benchmarks/report.json/md` committed or attached to CI artifact; two runs on same revision yield identical correctness metrics/schema; `npm run benchmark` validates sections/fixture counts.
 5. **Dependency review:** `npm audit`, lockfile integrity (`npm ci` clean), bundle size (`dist` ~ 260 KiB JS, `dist-server` ~1 MiB).
-6. **Changelog/version review:** `CHANGELOG.md` (Keep-a-Changelog) documents 0.x SemVer policy; `package.json` version bumped appropriately; notes state parser/provider support (`bdo-visa-gold-ph-image-v1` only), external boundaries, and limitations (synthetic bias, no cross-Wallet duplicate matching, no persistent DB, single currency PHP).
+6. **Changelog/version review:** `CHANGELOG.md` (Keep-a-Changelog) documents 0.x SemVer policy; `package.json` version bumped appropriately; notes state parser/provider support (`bdo-visa-gold-ph-image-v1` and `unionbank-ph-csv-v1`), external boundaries, and limitations (synthetic bias, no cross-Wallet duplicate matching, no persistent DB, single currency PHP).
 7. **Docs link check:** `README.md` quick start + demo + commands + limitations link to runbooks and `docs/guides/*`; no real token/account/statement/prompt in docs.
 8. **Tracked files & report policy:** `git diff --check`, `git ls-files`, policy check `npm run scan:repository`; no real financial example in Git, docs, screenshots, tests, or demo assets.
 
@@ -49,7 +49,7 @@ git push origin v0.5.0
 gh release create v0.5.0 --title "v0.5.0 — Phase 5" --notes-file CHANGELOG.md
 ```
 
-Release notes must accurately state supported parsers/providers (`bdo-visa-gold-ph-image-v1` + loopback OpenAI-compatible), external boundaries (Wallet `https://rest.budgetbakers.com/wallet` only after explicit confirmation; browser never contacts Wallet; demo cannot), and limitations (synthetic bias, local-model/OCR variance, no cross-session idempotency).
+Release notes must accurately state supported parsers/providers (`bdo-visa-gold-ph-image-v1` and `unionbank-ph-csv-v1` + loopback OpenAI-compatible), external boundaries (Wallet `https://rest.budgetbakers.com/wallet` only after explicit confirmation; browser never contacts Wallet; demo cannot), and limitations (synthetic bias, local-model/OCR variance, no cross-session idempotency).
 
 ## Post-release clean-clone verification
 

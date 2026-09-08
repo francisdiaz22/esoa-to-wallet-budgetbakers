@@ -324,6 +324,20 @@ describe('Phase 2 categorization UI', () => {
     expect(document.body).not.toHaveTextContent('record_id;date');
   });
 
+  it('shows the optional searchable description ID after step 3', async () => {
+    const user = await renderExtractedApp();
+    const input = screen.getByRole('textbox', {
+      name: 'Unique description ID (optional)',
+    });
+
+    expect(input).toHaveAttribute('maxlength', '80');
+    expect(screen.getByText(/it must be unique/i)).toHaveTextContent(
+      'It must be unique so you can search for this import in the Wallet app.',
+    );
+    await user.type(input, 'BDO-2026-07-29-01');
+    expect(input).toHaveValue('BDO-2026-07-29-01');
+  });
+
   it('covers provider unreachable, ready, categorizing, completed, review-only outcomes, and immediate clear', async () => {
     const user = await renderExtractedApp();
     api.importHistory.mockResolvedValue({

@@ -55,6 +55,8 @@ artifacts/
 !fixtures/synthetic/bdo/statement_page_1.jpg
 !fixtures/synthetic/bdo/statement_page_2.jpg
 !fixtures/synthetic/bdo/statement_page_3.jpg
+!fixtures/synthetic/unionbank/statement.csv
+!fixtures/synthetic/unionbank/expected_extraction.csv
 !fixtures/synthetic/evaluation/cases.json
 !fixtures/synthetic/review/duplicate_cases.json
 !fixtures/synthetic/review/split_cases.json

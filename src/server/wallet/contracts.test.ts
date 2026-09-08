@@ -6,6 +6,7 @@ import {
   WalletCategorySchema,
   CommitJournalEntrySchema,
   WalletCategoryMappingSchema,
+  WalletTokenSchema,
 } from './contracts.js';
 
 describe('wallet contracts', () => {
@@ -104,5 +105,14 @@ describe('wallet contracts', () => {
       extra: 1,
     };
     expect(WalletCategoryMappingSchema.safeParse(m).success).toBe(false);
+  });
+
+  it('accepts long JWT Wallet tokens within the bounded limit', () => {
+    const jwt = `eyJ${'a'.repeat(700)}.${'b'.repeat(700)}.${'c'.repeat(700)}`;
+    expect(WalletTokenSchema.safeParse(jwt).success).toBe(true);
+  });
+
+  it('rejects Wallet tokens above the bounded limit', () => {
+    expect(WalletTokenSchema.safeParse('a'.repeat(4097)).success).toBe(false);
   });
 });

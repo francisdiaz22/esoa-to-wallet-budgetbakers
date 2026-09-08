@@ -1,6 +1,6 @@
 {
-  "recordedAt": "2026-08-30",
-  "specVersion": "wallet-rest-2026-08-30-sanitized",
+  "recordedAt": "2026-09-01",
+  "specVersion": "wallet-rest-2.0.0-sanitized",
   "baseUrl": "https://rest.budgetbakers.com/wallet",
   "authentication": "Authorization: Bearer <token>",
   "pagination": {
@@ -18,7 +18,7 @@
     {
       "operationId": "listAccounts",
       "method": "GET",
-      "path": "/accounts",
+      "path": "/v1/api/accounts",
       "description": "List wallet accounts with pagination and writable flag",
       "parameters": [
         { "name": "limit", "in": "query", "type": "integer", "maximum": 200 },
@@ -58,7 +58,7 @@
     {
       "operationId": "listCategories",
       "method": "GET",
-      "path": "/categories",
+      "path": "/v1/api/categories",
       "description": "List wallet categories with hierarchy and group flag",
       "parameters": [
         { "name": "limit", "in": "query", "type": "integer", "maximum": 200 },
@@ -97,7 +97,7 @@
     {
       "operationId": "createRecords",
       "method": "POST",
-      "path": "/records",
+      "path": "/v1/api/records",
       "description": "Batch create records; non-atomic per-item results correlated by inputIndex",
       "requestSchema": {
         "type": "object",
@@ -106,7 +106,7 @@
           "records": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 100,
+            "maxItems": 50,
             "items": {
               "type": "object",
               "required": [
@@ -181,7 +181,7 @@
       },
       "moneyEncoding": "signed integer minor centavos; single adapter maps amountMinor -> envelope amount; no float; BDO expense sign negative preserved",
       "dateEncoding": "ISO calendar date YYYY-MM-DD",
-      "batchMaximum": 100,
+      "batchMaximum": 50,
       "correlation": "inputIndex zero-based per chunk",
       "writableAccountRepresentation": "boolean field writable=true indicates writable; never infer from name",
       "categoryHierarchyRules": "isGroup=true indicates group/parent only; not eligible for assignment when API disallows; hierarchy via parentId",

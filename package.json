@@ -2,6 +2,9 @@
   "name": "esoa-to-wallet-budgetbakers",
   "version": "0.5.0",
   "private": true,
+  "overrides": {
+    "qs": "6.16.0"
+  },
   "description": "Local-first eSOA extraction and Wallet by BudgetBakers review workflow.",
   "type": "module",
   "engines": {
@@ -29,7 +32,7 @@
     "scan:repository": "node scripts/check-sensitive-files.mjs",
     "scan:demo": "node scripts/check-demo-assets.mjs",
     "scan:external": "node scripts/check-external-origins.mjs",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:e2e && npm run eval && npm run benchmark && npm run scan:secrets && npm run scan:repository && npm run scan:demo && npm run scan:external"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:e2e && npm run eval && npm run benchmark && npm run scan:secrets && npm run scan:repository && npm run scan:demo && npm run scan:external && npm run audit && npm run build"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "1.0.0",

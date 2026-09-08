@@ -10,7 +10,7 @@ This guide explains how to add a bank/layout parser with fixture-driven developm
   `readonly id: string` (e.g., `bdo-visa-gold-ph-image-v1`), `canParse(document)` returns scored `ParserMatch`, `parse(document, context)` throws on missing statement context.
 - Register only via `ParserRegistry([bdoParser, myParser])`. Registry selects exactly one confident match; ties or below-threshold matches return `unsupported_layout`.
 - Detection must use stable layout anchors (header labels, column structure, expected transaction row pattern), never account/card numbers, statement dates, merchant names, or fixture filenames.
-- `ParserContext` provides `statementId` (user-provided metadata like `BDO_VGOLD_20260729`), `statementYear` (parsed from OCR-visible statement date, never `new Date().getFullYear()`), and `currency` (`PHP` only).
+- `ParserContext` provides an opaque `statementId` from validated statement metadata/evidence (never a filename or layout label), `statementYear` (parsed from statement evidence, never `new Date().getFullYear()`), and `currency` (`PHP` only).
 
 ## Recognition → normalization → exclusion → continuations
 
@@ -56,7 +56,10 @@ This guide explains how to add a bank/layout parser with fixture-driven developm
 
 - Redacted real statements (merchant/date/amount/pattern/metadata can still identify a person).
 - Hard-coding the fixture filename or the 33 merchant strings as parsing logic.
-- Inferring `statementId` from layout alone; it is user-provided session metadata.
+- Inferring `statementId` from a filename or layout label; derive it only from validated statement evidence or user-provided metadata.
 - Persisting raw excerpts in `Error.message`, console, logs, or snapshots.
 
-See also: `IMPLEMENTATION.md`, `IMPLEMENT_phase1.md`, `src/server/ingestion/bdoParser.ts`, `fixtures/synthetic/bdo/expected_extraction.csv`.
+See also: [IMPLEMENTATION.md](../implementation_plans/IMPLEMENTATION.md),
+[IMPLEMENT_phase1.md](../implementation_plans/IMPLEMENT_phase1.md),
+[bdoParser.ts](../../src/server/ingestion/bdoParser.ts), and
+[expected_extraction.csv](../../fixtures/synthetic/bdo/expected_extraction.csv).

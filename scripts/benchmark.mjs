@@ -205,7 +205,7 @@ const timingReport = {
 const report = {
   version: '0.1.0',
   methodology: {
-    fixtureIds: ['synthetic-bdo-v1', 'eval-v1'],
+    fixtureIds: ['synthetic-bdo-v1', 'unionbank-csv-v1', 'eval-v1'],
     timingArtifact: 'benchmark-timing.json (generated in CI, not committed)',
   },
   fixtures: {
@@ -214,6 +214,10 @@ const report = {
       'fixtures/synthetic/bdo/expected_extraction.csv (33 included + 4 excluded, PHP 34,957.17)',
     walletRecords:
       'fixtures/synthetic/bdo/wallet_records_synthetic.csv (35 rows)',
+    unionBankStatement:
+      'fixtures/synthetic/unionbank/statement.csv (4 included + 1 excluded)',
+    unionBankExpectedExtraction:
+      'fixtures/synthetic/unionbank/expected_extraction.csv',
     evaluationCases: 'fixtures/synthetic/evaluation/cases.json (20 cases)',
     reviewFixtures:
       'fixtures/synthetic/review/(duplicate_cases, split_cases, expected_summary)',
@@ -256,7 +260,7 @@ const report = {
     chunkMax: 20,
   },
   limitations: [
-    'fixture-backed formats only (BDO Visa Gold PHP image); synthetic bias',
+    'fixture-backed formats only (BDO Visa Gold PHP image and UnionBank CSV); synthetic bias',
     'local-model/OCR variance',
     'no cross-session idempotency',
     'no cross-Wallet duplicate matching',

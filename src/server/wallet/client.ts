@@ -1,7 +1,6 @@
 import { LIMITS } from '../ingestion/limits.js';
+import { z } from 'zod';
 import {
-  WalletAccountListEnvelopeSchema,
-  WalletCategoryListEnvelopeSchema,
   WalletWriteEnvelopeSchema,
   type WalletAccount,
   type WalletCategory,
@@ -10,7 +9,11 @@ import {
 } from './contracts.js';
 
 export const WALLET_BASE_URL = LIMITS.WALLET_BASE_URL;
-export const ALLOWED_PATHS = new Set(['/accounts', '/categories', '/records']);
+export const ALLOWED_PATHS = new Set([
+  '/v1/api/accounts',
+  '/v1/api/categories',
+  '/v1/api/records',
+]);
 export const ALLOWED_ORIGIN = 'https://rest.budgetbakers.com';
 
 export type WalletClientErrorCode =
@@ -69,6 +72,56 @@ function assertFixedUrl(urlStr: string): URL {
   }
   return url;
 }
+
+const WalletApiAccountSchema = z.object({
+  id: z.string().min(1).max(200),
+  name: z.string().min(1).max(LIMITS.MAX_WALLET_LABEL_LENGTH),
+  currencyCode: z.string().length(3),
+  archived: z.boolean().optional(),
+  isBankSync: z.boolean().optional(),
+  isInvestmentAccount: z.boolean().optional(),
+});
+
+const WalletApiCategorySchema = z.object({
+  id: z.string().min(1).max(200),
+  name: z.string().min(1).max(LIMITS.MAX_WALLET_LABEL_LENGTH),
+  parentId: z.string().min(1).max(200).optional(),
+  archived: z.boolean().optional(),
+  enabled: z.boolean().optional(),
+});
+
+const WalletApiAccountListSchema = z.object({
+  accounts: z.array(WalletApiAccountSchema).max(LIMITS.WALLET_PAGE_LIMIT_MAX),
+  limit: z.number().int().min(1).max(LIMITS.WALLET_PAGE_LIMIT_MAX).optional(),
+  offset: z.number().int().min(0).optional(),
+  nextOffset: z.number().int().min(0).optional(),
+});
+
+const WalletApiCategoryListSchema = z.object({
+  categories: z
+    .array(WalletApiCategorySchema)
+    .max(LIMITS.WALLET_PAGE_LIMIT_MAX),
+  limit: z.number().int().min(1).max(LIMITS.WALLET_PAGE_LIMIT_MAX).optional(),
+  offset: z.number().int().min(0).optional(),
+  nextOffset: z.number().int().min(0).optional(),
+});
+
+const WalletApiWriteEnvelopeSchema = z.object({
+  summary: z.object({
+    total: z.number().int().min(0),
+    succeeded: z.number().int().min(0),
+    clientErrors: z.number().int().min(0),
+    serverErrors: z.number().int().min(0),
+  }),
+  results: z.array(
+    z.object({
+      inputIndex: z.number().int().min(0),
+      success: z.boolean(),
+      id: z.string().min(1).max(200).optional(),
+      errorType: z.enum(['client_error', 'server_error']).optional(),
+    }),
+  ),
+});
 
 type FetchInitWithTimeout = RequestInit & { timeoutMs: number };
 async function fetchWithTimeout(
@@ -139,7 +192,7 @@ async function readBoundedBody(
 export class WalletClient implements WalletClientInterface {
   constructor(private baseUrl: string = WALLET_BASE_URL) {
     // Validate fixed origin at construction
-    assertFixedUrl(this.baseUrl + '/accounts'); // probe
+    assertFixedUrl(this.baseUrl + '/v1/api/accounts'); // probe
     if (this.baseUrl !== WALLET_BASE_URL) {
       throw new Error('Wallet base URL must be fixed');
     }
@@ -176,7 +229,7 @@ export class WalletClient implements WalletClientInterface {
     const limit = LIMITS.WALLET_PAGE_LIMIT_DEFAULT;
     // Validate all pages before atomic replace done by caller; here we just collect
     while (true) {
-      const url = this.buildUrl('/accounts', { limit, offset });
+      const url = this.buildUrl('/v1/api/accounts', { limit, offset });
       const res = await fetchWithTimeout(url, {
         method: 'GET',
         headers: this.authHeaders(token),
@@ -199,7 +252,11 @@ export class WalletClient implements WalletClientInterface {
         let retryMinutes: number | undefined;
         try {
           const j = JSON.parse(text);
-          retryMinutes = j.retryAfterMinutes ?? j.retry_minutes ?? undefined;
+          retryMinutes =
+            j.retry_after_minutes ??
+            j.retryAfterMinutes ??
+            j.retry_minutes ??
+            undefined;
         } catch (_e) {
           void _e;
         }
@@ -252,33 +309,42 @@ export class WalletClient implements WalletClientInterface {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
-      const validated = WalletAccountListEnvelopeSchema.safeParse(parsed);
+      const validated = WalletApiAccountListSchema.safeParse(parsed);
       if (!validated.success) {
         throw Object.assign(new Error('malformed body'), {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
       const env = validated.data;
-      all.push(...env.accounts);
+      all.push(
+        ...env.accounts
+          .filter((account) => account.currencyCode === 'PHP')
+          .map((account) => ({
+            id: account.id,
+            name: account.name,
+            currency: 'PHP' as const,
+            writable:
+              account.archived !== true &&
+              account.isBankSync !== true &&
+              account.isInvestmentAccount !== true,
+          })),
+      );
       if (all.length > LIMITS.MAX_WALLET_ACCOUNTS) {
         throw Object.assign(new Error('account limit exceeded'), {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
       const totalItemsSoFar = all.length;
-      if (
-        env.pagination?.nextOffset === undefined ||
-        env.pagination.nextOffset === null
-      ) {
+      if (env.nextOffset === undefined || env.nextOffset === null) {
         break;
       }
       // Enforce pagination bounds
-      if (env.pagination.nextOffset <= offset) {
+      if (env.nextOffset <= offset) {
         throw Object.assign(new Error('pagination loop'), {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
-      offset = env.pagination.nextOffset;
+      offset = env.nextOffset;
       // Guard infinite loop
       if (totalItemsSoFar > 10000) break;
     }
@@ -293,7 +359,7 @@ export class WalletClient implements WalletClientInterface {
     let offset = 0;
     const limit = LIMITS.WALLET_PAGE_LIMIT_DEFAULT;
     while (true) {
-      const url = this.buildUrl('/categories', { limit, offset });
+      const url = this.buildUrl('/v1/api/categories', { limit, offset });
       const res = await fetchWithTimeout(url, {
         method: 'GET',
         headers: this.authHeaders(token),
@@ -315,7 +381,8 @@ export class WalletClient implements WalletClientInterface {
         let retryMinutes: number | undefined;
         try {
           const j = JSON.parse(text);
-          retryMinutes = j.retryAfterMinutes ?? undefined;
+          retryMinutes =
+            j.retry_after_minutes ?? j.retryAfterMinutes ?? undefined;
         } catch (_e) {
           void _e;
         }
@@ -367,30 +434,38 @@ export class WalletClient implements WalletClientInterface {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
-      const validated = WalletCategoryListEnvelopeSchema.safeParse(parsed);
+      const validated = WalletApiCategoryListSchema.safeParse(parsed);
       if (!validated.success) {
         throw Object.assign(new Error('malformed body'), {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
       const env = validated.data;
-      all.push(...env.categories);
+      all.push(
+        ...env.categories
+          .filter(
+            (category) =>
+              category.archived !== true && category.enabled !== false,
+          )
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            parentId: category.parentId,
+            isGroup: false,
+          })),
+      );
       if (all.length > LIMITS.MAX_WALLET_CATEGORIES) {
         throw Object.assign(new Error('category limit exceeded'), {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
-      if (
-        env.pagination?.nextOffset === undefined ||
-        env.pagination.nextOffset === null
-      )
-        break;
-      if (env.pagination.nextOffset <= offset) {
+      if (env.nextOffset === undefined || env.nextOffset === null) break;
+      if (env.nextOffset <= offset) {
         throw Object.assign(new Error('pagination loop'), {
           code: 'malformed_response' as WalletClientErrorCode,
         });
       }
-      offset = env.pagination.nextOffset;
+      offset = env.nextOffset;
     }
     return all;
   }
@@ -417,8 +492,20 @@ export class WalletClient implements WalletClientInterface {
     ) {
       throw new Error('batch size out of bounds');
     }
-    const url = this.buildUrl('/records');
-    const body = JSON.stringify({ records });
+    const url = this.buildUrl('/v1/api/records');
+    const body = JSON.stringify(
+      records.map((record) => ({
+        accountId: record.accountId,
+        amount: {
+          value: record.amount / 100,
+          currencyCode: record.currency,
+        },
+        categoryId: record.categoryId,
+        recordDate: `${record.date}T12:00:00.000Z`,
+        note: record.description.slice(0, 255),
+        counterParty: record.payee?.slice(0, 255),
+      })),
+    );
     if (body.length > LIMITS.MAX_WALLET_RESPONSE_BYTES) {
       throw new Error('request too large');
     }
@@ -479,7 +566,31 @@ export class WalletClient implements WalletClientInterface {
         code: 'malformed_response' as WalletClientErrorCode,
       });
     }
-    const validated = WalletWriteEnvelopeSchema.safeParse(parsed);
+    const apiValidated = WalletApiWriteEnvelopeSchema.safeParse(parsed);
+    if (!apiValidated.success) {
+      throw Object.assign(new Error('malformed write body'), {
+        code: 'malformed_response' as WalletClientErrorCode,
+      });
+    }
+    const apiEnvelope = apiValidated.data;
+    const validated = WalletWriteEnvelopeSchema.safeParse({
+      summary: {
+        total: apiEnvelope.summary.total,
+        succeeded: apiEnvelope.summary.succeeded,
+        failed:
+          apiEnvelope.summary.clientErrors + apiEnvelope.summary.serverErrors,
+      },
+      results: apiEnvelope.results.map((result) => ({
+        inputIndex: result.inputIndex,
+        status: result.success
+          ? 'succeeded'
+          : result.errorType === 'server_error'
+            ? 'server_error'
+            : 'client_error',
+        walletRecordId: result.id,
+        safeErrorCode: result.success ? undefined : result.errorType,
+      })),
+    });
     if (!validated.success) {
       // Invalid body → treat as malformed (unknown outcome for that chunk)
       throw Object.assign(new Error('malformed envelope'), {

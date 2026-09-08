@@ -1,6 +1,6 @@
 # Benchmark report
 
-**Version:** 0.1.0 • **Fixtures:** synthetic-bdo-v1, eval-v1
+**Version:** 0.1.0 • **Fixtures:** synthetic-bdo-v1, unionbank-csv-v1, eval-v1
 
 > Synthetic only. Not a guarantee. See `docs/benchmarks/README.md` for methodology.
 
@@ -24,7 +24,7 @@
 Machine-specific measured timing is emitted to the CI artifact `benchmark-timing.json`; it is not committed or used as a release guarantee.
 
 ## Limitations
-- fixture-backed formats only (BDO Visa Gold PHP image); synthetic bias
+- fixture-backed formats only (BDO Visa Gold PHP image and UnionBank CSV); synthetic bias
 - local-model/OCR variance
 - no cross-session idempotency
 - no cross-Wallet duplicate matching

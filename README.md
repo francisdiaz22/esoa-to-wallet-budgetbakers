@@ -8,7 +8,7 @@ model and imported Wallet history, provide a human review step, and submit only
 approved transactions through the Wallet REST API. Financial data stays on the
 user's machine and telemetry is disabled by default.
 
-> **Current status:** Phase 5 complete — product polish, extensibility, and public release. Onboarding is state-derived (not persisted) and demo works offline through review (`Synthetic demo data — not a financial record`, Wallet disabled). Accessibility at WCAG 2.2 AA where applicable (semantic controls, keyboard, visible focus, aria-live, 320px + 200% zoom), diagnostics is explicit/previewable/local-only/redacted, benchmarks are reproducible from synthetic fixtures, and governance/release workflow is manual and owner-approved. See `IMPLEMENTATION.md`, `IMPLEMENT_phase5.md`, `docs/benchmarks/README.md`, and `docs/release/RELEASE.md`.
+> **Current status:** Phase 5 complete — product polish, extensibility, and public release. Onboarding is state-derived (not persisted) and demo works offline through review (`Synthetic demo data — not a financial record`, Wallet disabled). Accessibility at WCAG 2.2 AA where applicable (semantic controls, keyboard, visible focus, aria-live, 320px + 200% zoom), diagnostics is explicit/previewable/local-only/redacted, benchmarks are reproducible from synthetic fixtures, and governance/release workflow is manual and owner-approved. See the [implementation plan](docs/implementation_plans/IMPLEMENTATION.md), [Phase 5 runbook](docs/implementation_plans/IMPLEMENT_phase5.md), [benchmark guide](docs/benchmarks/README.md), and [release runbook](docs/release/RELEASE.md).
 
 ## Requirements
 
@@ -76,7 +76,7 @@ Guidance is keyboard-operable and derives from active session state (`hasExtract
 
 Transport (validated at the ingestion boundary): CSV (RFC-style, BOM tolerated), PDF (native text vs scanned), and image files (JPEG/PNG/WebP/TIFF/BMP). Every extractor produces a neutral `DocumentPage`/`TextLine` representation.
 
-Parser-backed layout at exit: `bdo-visa-gold-ph-image-v1` only — using the supplied three-page synthetic BDO Visa Gold PHP image fixture. Other routes (CSV, PDF text, or generic image) will reach the generic extractor but return `422 unsupported_layout` until a corresponding parser is backed by fixtures. Do not treat this as generic CSV/PDF support.
+Parser-backed layouts at exit are `bdo-visa-gold-ph-image-v1` (the three-page synthetic BDO Visa Gold PHP image fixture) and `unionbank-ph-csv-v1` (the explicitly synthetic UnionBank CSV fixture with the exact `DATE,DESCRIPTION,CURRENCY,AMOUNT` header). Other CSV, PDF, or generic image layouts reach the generic extractor but return `422 unsupported_layout` until a corresponding parser is backed by fixtures. Do not treat this as generic CSV/PDF support.
 
 For recognized BDO images, the statement year and an opaque statement ID are
 derived from the OCR-visible statement date. If that context is absent or
@@ -218,6 +218,14 @@ The reviewed BDO fixture set is under `fixtures/synthetic/bdo/`:
 - `wallet_records_synthetic.csv`: 35 post-review Wallet rows. Two source charges
   are intentionally split, and all rows reconcile to PHP 34,957.17.
 
+The reviewed UnionBank parser fixture is under `fixtures/synthetic/unionbank/`:
+
+- `statement.csv`: an explicitly synthetic `DATE,DESCRIPTION,CURRENCY,AMOUNT`
+  export with four included PHP charges and one excluded negative credit.
+- `expected_extraction.csv`: the row-level extraction oracle for the fixture,
+  including source order, signed amounts, and the excluded-row reason.
+- `README.md`: provenance, schema, and sign/exclusion semantics for the fixture.
+
 Review fixtures are under `fixtures/synthetic/review/`:
 
 - `duplicate_cases.json`: exact/near/non-duplicate pairs for detector tests.
@@ -231,7 +239,8 @@ Evaluation fixtures are under `fixtures/synthetic/evaluation/`:
 All fixture values are synthetic. Real statements, screenshots, history
 exports, OCR output, and tokens are ignored by default. Adding a new synthetic
 fixture requires an explicit `.gitignore` allowlist entry and reviewer
-confirmation of its provenance.
+confirmation of its provenance; see the parser guide for the required oracle
+and integration-test steps.
 
 Run the reproducible evaluation (baseline and fake-provider) with:
 
@@ -249,7 +258,14 @@ parsers, OCR engines, local-model providers (via `src/server/categorization/`), 
 
 Read [SECURITY.md](SECURITY.md) before handling a statement or credential. Key
 architectural decisions are recorded in [docs/adr](docs/adr), and the complete
-delivery plan is in [IMPLEMENTATION.md](IMPLEMENTATION.md). Phase 1 details are in [IMPLEMENT_phase1.md](IMPLEMENT_phase1.md), Phase 2 in [IMPLEMENT_phase2.md](IMPLEMENT_phase2.md), Phase 3 in [IMPLEMENT_phase3.md](IMPLEMENT_phase3.md).
+delivery plan is in
+[IMPLEMENTATION.md](docs/implementation_plans/IMPLEMENTATION.md). Phase 1
+details are in
+[IMPLEMENT_phase1.md](docs/implementation_plans/IMPLEMENT_phase1.md), Phase 2
+in
+[IMPLEMENT_phase2.md](docs/implementation_plans/IMPLEMENT_phase2.md), and Phase
+3 in
+[IMPLEMENT_phase3.md](docs/implementation_plans/IMPLEMENT_phase3.md).
 
 ## Contributing
 

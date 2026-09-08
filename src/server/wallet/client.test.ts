@@ -94,23 +94,31 @@ describe('wallet client', () => {
   it('honors pagination nextOffset and limits', async () => {
     const originalFetch = global.fetch;
     let call = 0;
+    const urls: string[] = [];
     // @ts-expect-error
-    global.fetch = vi.fn(async (_url: string) => {
+    global.fetch = vi.fn(async (url: string) => {
+      urls.push(url);
       call++;
       if (call === 1) {
         return new Response(
           JSON.stringify({
             accounts: [
-              { id: 'a1', name: 'A1', currency: 'PHP', writable: true },
+              { id: 'a1', name: 'A1', currencyCode: 'PHP', isBankSync: false },
             ],
-            pagination: { limit: 100, offset: 0, nextOffset: 1 },
+            limit: 100,
+            offset: 0,
+            nextOffset: 1,
           }),
           { status: 200 },
         );
       }
       return new Response(
         JSON.stringify({
-          accounts: [{ id: 'a2', name: 'A2', currency: 'PHP', writable: true }],
+          accounts: [
+            { id: 'a2', name: 'A2', currencyCode: 'PHP', isBankSync: true },
+          ],
+          limit: 100,
+          offset: 1,
         }),
         { status: 200 },
       );
@@ -118,6 +126,64 @@ describe('wallet client', () => {
     const client = new WalletClient();
     const accounts = await client.listAccounts('tok-1234567890');
     expect(accounts.length).toBe(2);
+    expect(accounts[0]?.writable).toBe(true);
+    expect(accounts[1]?.writable).toBe(false);
+    expect(urls[0]).toContain('/wallet/v1/api/accounts?');
+    expect(urls[1]).toContain('offset=1');
+    global.fetch = originalFetch;
+  });
+
+  it('maps record payloads and write results to the live Wallet API contract', async () => {
+    const originalFetch = global.fetch;
+    let capturedUrl = '';
+    let capturedBody: unknown;
+    // @ts-expect-error
+    global.fetch = vi.fn(async (url: string, init: RequestInit) => {
+      capturedUrl = url;
+      capturedBody = JSON.parse(String(init.body));
+      return new Response(
+        JSON.stringify({
+          summary: {
+            total: 1,
+            succeeded: 1,
+            clientErrors: 0,
+            serverErrors: 0,
+            documentsWritten: 1,
+          },
+          results: [{ inputIndex: 0, success: true, id: 'record-1' }],
+        }),
+        { status: 200 },
+      );
+    });
+    const client = new WalletClient();
+    const result = await client.createRecords('tok-1234567890', [
+      {
+        accountId: 'account-1',
+        categoryId: 'category-1',
+        amount: -12345,
+        currency: 'PHP',
+        date: '2026-08-31',
+        description: 'Dinner',
+        payee: 'Restaurant',
+      },
+    ]);
+    expect(capturedUrl).toBe(
+      'https://rest.budgetbakers.com/wallet/v1/api/records',
+    );
+    expect(capturedBody).toEqual([
+      {
+        accountId: 'account-1',
+        amount: { value: -123.45, currencyCode: 'PHP' },
+        categoryId: 'category-1',
+        recordDate: '2026-08-31T12:00:00.000Z',
+        note: 'Dinner',
+        counterParty: 'Restaurant',
+      },
+    ]);
+    expect(result.results[0]).toMatchObject({
+      status: 'succeeded',
+      walletRecordId: 'record-1',
+    });
     global.fetch = originalFetch;
   });
 });

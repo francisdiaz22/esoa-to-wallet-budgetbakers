@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Pre-1.0 policy: remain `0.x` until a stable public contract is deliberately declared; breaking changes still increment the minor version. See `package.json` version and `docs/benchmarks/report.json` for current state.
 
+## [Unreleased]
+
+### Added
+
+- UnionBank Philippines CSV parser `unionbank-ph-csv-v1` with an explicitly synthetic fixture, row-level oracle, and route integration coverage.
+- Wallet API v2-compatible token bounds, create-batch sizing, dry-run payment-date validation, and description ID support.
+
 ## [0.5.0] — 2026-08-30 — Product polish, extensibility, and public release (Phase 5)
 
 ### Added

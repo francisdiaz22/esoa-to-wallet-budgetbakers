@@ -82,8 +82,8 @@ export const LIMITS = {
   // Phase 4 - Wallet REST commit
   /** Fixed Wallet REST origin */
   WALLET_BASE_URL: 'https://rest.budgetbakers.com/wallet' as const,
-  /** Max Wallet token length (bounded password field) */
-  MAX_WALLET_TOKEN_LENGTH: 500,
+  /** Max Wallet token length (bounded password field; Wallet issues JWTs that can exceed 500 characters) */
+  MAX_WALLET_TOKEN_LENGTH: 4096,
   /** Max Wallet response size (bounded) */
   MAX_WALLET_RESPONSE_BYTES: 512 * 1024,
   /** Wallet read/connect timeout ms */
@@ -94,8 +94,8 @@ export const LIMITS = {
   WALLET_PAGE_LIMIT_MAX: 200,
   /** Default pagination limit */
   WALLET_PAGE_LIMIT_DEFAULT: 100,
-  /** Max items per create batch (confirmed endpoint maximum) */
-  WALLET_CREATE_BATCH_MAX: 100,
+  /** Max items per create batch (Wallet OpenAPI 2.0.0) */
+  WALLET_CREATE_BATCH_MAX: 50,
   /** Max categories/accounts per session catalog */
   MAX_WALLET_ACCOUNTS: 200,
   MAX_WALLET_CATEGORIES: 500,

@@ -90,6 +90,14 @@ export function App() {
   const [catStatus, setCatStatus] = useState<Phase2Status>('idle');
   const [catResult, setCatResult] = useState<CategorizationResult | null>(null);
   const [catError, setCatError] = useState<ApiError | null>(null);
+  const [descriptionId, setDescriptionId] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => {
+    const now = new Date();
+    const localDate = new Date(
+      now.getTime() - now.getTimezoneOffset() * 60_000,
+    );
+    return localDate.toISOString().slice(0, 10);
+  });
 
   // Phase 3 review states
   const [reviewItems, setReviewItems] = useState<ReviewItem[] | null>(null);
@@ -223,6 +231,7 @@ export function App() {
       setCatResult(null);
       setCatStatus('idle');
       setCatError(null);
+      setDescriptionId('');
       setReviewItems(null);
       setReviewSummary(null);
       setReviewVersion(null);
@@ -740,11 +749,20 @@ export function App() {
 
   const handleWalletDryRun = async () => {
     if (!result) return;
+    if (!paymentDate) {
+      setWalletError({
+        code: 'payment_date_required',
+        message: 'Select a payment date before creating the dry-run.',
+      });
+      return;
+    }
     setWalletSetupStatus('pending');
     setWalletError(null);
     try {
       const dry = await createWalletDryRun(
         (result as unknown as { sessionId: string }).sessionId,
+        paymentDate,
+        descriptionId.trim() || undefined,
       );
       setWalletDryRun(dry);
       setWalletSetupStatus('success');
@@ -974,6 +992,7 @@ export function App() {
     setCatResult(null);
     setCatStatus('idle');
     setCatError(null);
+    setDescriptionId('');
     setReviewItems(null);
     setReviewSummary(null);
     setReviewVersion(null);
@@ -1026,29 +1045,30 @@ export function App() {
     !!historySummary && providerConfigured && catStatus !== 'pending';
 
   return (
-    <main
-      style={{
-        display: 'block',
-        maxWidth: '70rem',
-        margin: '0 auto',
-        padding: '2rem 1rem',
-      }}
-    >
-      <section aria-labelledby="page-title" style={{ marginBottom: '2rem' }}>
-        <p className="eyebrow">OPEN SOURCE</p>
-        <h1
-          id="page-title"
-          style={{ maxWidth: 'none', fontSize: 'clamp(2rem, 5vw, 3.5rem)' }}
-        >
-          eSOA to Wallet
-        </h1>
-        <p className="lede" style={{ maxWidth: '46rem' }}>
-          Files are processed by the local service at 127.0.0.1 and cleared on
-          request. No Wallet import, categorization data, or prompts leave this
-          device.{' '}
-          <strong>Telemetry, analytics, and remote fonts are disabled.</strong>{' '}
-          Wallet is the only optional external origin.
-        </p>
+    <main className="app-shell">
+      <header className="app-header" aria-labelledby="page-title">
+        <div className="app-header__brand">
+          <span className="brand-mark" aria-hidden="true">
+            EW
+          </span>
+          <span>eSOA to Wallet</span>
+        </div>
+        <div className="app-header__intro">
+          <p className="eyebrow">Local-first expense importer</p>
+          <h1 id="page-title">Turn a statement into reviewed expenses</h1>
+          <p className="lede">
+            Follow one clear path from statement to Wallet. You stay in control:
+            every transaction must be reviewed before it can be sent.
+          </p>
+        </div>
+        <div className="trust-strip" aria-label="Privacy summary">
+          <span>
+            <strong>Private by default</strong> · processed on this device
+          </span>
+          <span>
+            <strong>No automatic sends</strong> · Wallet is always optional
+          </span>
+        </div>
         {isDemo && demoBanner && (
           <div
             role="status"
@@ -1067,7 +1087,7 @@ export function App() {
             live session.
           </div>
         )}
-      </section>
+      </header>
 
       <OnboardingPanel
         state={{
@@ -1092,8 +1112,8 @@ export function App() {
           providerError: providerError?.code,
         }}
         onLoadDemo={handleLoadDemo}
-        onImportStatement={() => fileInputRef.current?.focus()}
-        onImportHistory={() => historyInputRef.current?.focus()}
+        onImportStatement={() => fileInputRef.current?.click()}
+        onImportHistory={() => historyInputRef.current?.click()}
         onConfigureProvider={() =>
           document
             .getElementById('provider-section')
@@ -1181,6 +1201,7 @@ export function App() {
 
       {!result ? (
         <section
+          className="workflow-card workflow-card--active"
           aria-labelledby="import-title"
           style={{
             background: '#fcfdf9',
@@ -1218,8 +1239,7 @@ export function App() {
                 marginBottom: '0.5rem',
               }}
             >
-              Drag a document (or its ordered image pages) onto the drop zone or
-              select with the file picker
+              Drag a document here, or choose files from your device
             </label>
             <input
               ref={fileInputRef}
@@ -1232,16 +1252,15 @@ export function App() {
               style={{ display: 'block', margin: '0.5rem auto' }}
             />
             <p id="file-hint" style={{ fontSize: '0.85rem', color: '#69736c' }}>
-              Accepted: CSV, PDF, JPG/PNG/WebP/TIFF/BMP. For BDO fixture, select
-              3 images in ascending page order.
+              CSV, PDF, or statement images. If your statement has multiple
+              image pages, select them in page order.
             </p>
             <p
               id="privacy-notice"
               style={{ fontSize: '0.85rem', color: '#69736c' }}
             >
-              Files are sent only to the local service at 127.0.0.1 and are
-              removed when you clear the session. They are not stored in browser
-              storage or uploaded to a remote host.
+              Processed only by the local service on this device and removed
+              when you clear the session.
             </p>
           </div>
 
@@ -2446,6 +2465,7 @@ export function App() {
       ) : (
         <section aria-labelledby="results-title">
           <div
+            className="result-overview"
             style={{
               background: '#fcfdf9',
               border: '1px solid #d4dbd4',
@@ -2498,6 +2518,7 @@ export function App() {
           </div>
 
           <div
+            className="data-table-card"
             style={{
               overflowX: 'auto',
               background: 'white',
@@ -2740,6 +2761,7 @@ export function App() {
 
           {/* Phase 2: History import */}
           <section
+            className={`workflow-card ${historySummary ? 'workflow-card--complete' : 'workflow-card--active'}`}
             aria-labelledby="history-title"
             style={{
               marginTop: '2rem',
@@ -2755,7 +2777,7 @@ export function App() {
               style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
             >
               <span className="workflow-step-number">2</span>
-              <span>Wallet history (local session only)</span>
+              <span>Add Wallet history</span>
             </h2>
             <p
               style={{
@@ -2764,9 +2786,8 @@ export function App() {
                 margin: '0 0 1rem',
               }}
             >
-              Import a Wallet-native comma-delimited export or the synthetic
-              semicolon-delimited history CSV. It is used only to suggest
-              categories in this session and is cleared with the session.
+              Add a Wallet CSV export so the app can learn the categories you
+              already use. The file stays in this local session.
             </p>
             {historySummary && (
               <div
@@ -2828,8 +2849,7 @@ export function App() {
                   marginBottom: '0.5rem',
                 }}
               >
-                Drag Wallet history CSV onto the drop zone or select with the
-                file picker
+                Drag Wallet history CSV here, or choose a file
               </label>
               <input
                 ref={historyInputRef}
@@ -2905,264 +2925,275 @@ export function App() {
           </section>
 
           {/* Phase 2: Provider setup */}
-          <section
-            id="provider-section"
-            aria-labelledby="provider-title"
-            style={{
-              marginTop: '1.5rem',
-              background: '#fcfdf9',
-              border: '1px solid #d4dbd4',
-              borderRadius: '1rem',
-              padding: '1.5rem',
-            }}
-          >
-            <h2
-              id="provider-title"
-              className="workflow-step-heading"
-              style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
-            >
-              <span className="workflow-step-number">3</span>
-              <span>Local model provider (loopback only)</span>
-            </h2>
-            <p
+          {historySummary && (
+            <section
+              className={`workflow-card ${providerConfigured ? 'workflow-card--complete' : 'workflow-card--active'}`}
+              id="provider-section"
+              aria-labelledby="provider-title"
               style={{
-                fontSize: '0.85rem',
-                color: '#69736c',
-                margin: '0 0 1rem',
+                marginTop: '1.5rem',
+                background: '#fcfdf9',
+                border: '1px solid #d4dbd4',
+                borderRadius: '1rem',
+                padding: '1.5rem',
               }}
             >
-              Configure a local OpenAI-compatible endpoint (e.g., Ollama). URL
-              must be loopback (127.0.0.1 or ::1). No cloud URL, credentials, or
-              proxy is permitted. Use <strong>Test local connection</strong> to
-              verify without sending statement data.
-            </p>
-            {providerError && (
-              <div
-                role="alert"
-                style={{
-                  background: '#fdecea',
-                  border: '1px solid #f5c2c0',
-                  padding: '0.75rem 1rem',
-                  borderRadius: 8,
-                  marginBottom: '1rem',
-                }}
+              <h2
+                id="provider-title"
+                className="workflow-step-heading"
+                style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
               >
-                <strong>Error [{providerError.code}]</strong>
-                {providerError.stage ? ` at ${providerError.stage}` : ''}:{' '}
-                {providerError.message}
-              </div>
-            )}
-            {providerStatus === 'success' && providerTestLabel && (
-              <div
-                role="status"
-                style={{
-                  background: '#eef6ee',
-                  border: '1px solid #b9d8b9',
-                  padding: '0.75rem 1rem',
-                  borderRadius: 8,
-                  marginBottom: '1rem',
-                  fontSize: '0.9rem',
-                }}
-              >
-                Provider reachable — model: {providerTestLabel}
-              </div>
-            )}
-            <div style={{ display: 'grid', gap: '0.75rem', maxWidth: '32rem' }}>
-              <label
-                htmlFor="provider-baseUrl"
-                style={{ fontWeight: 600, fontSize: '0.9rem' }}
-              >
-                Base URL
-              </label>
-              <input
-                id="provider-baseUrl"
-                type="url"
-                value={providerBaseUrl}
-                onChange={(e) => setProviderBaseUrl(e.target.value)}
-                placeholder="http://127.0.0.1:11434"
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: 8,
-                  border: '1px solid #c3cec5',
-                }}
-              />
-              <label
-                htmlFor="provider-model"
-                style={{ fontWeight: 600, fontSize: '0.9rem' }}
-              >
-                Model (optional)
-              </label>
-              <input
-                id="provider-model"
-                type="text"
-                value={providerModel}
-                onChange={(e) => setProviderModel(e.target.value)}
-                placeholder="local-model"
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: 8,
-                  border: '1px solid #c3cec5',
-                }}
-              />
-            </div>
-            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={onSaveProvider}
-                disabled={providerStatus === 'pending'}
-                aria-disabled={providerStatus === 'pending'}
-                style={{
-                  padding: '0.6rem 1.2rem',
-                  borderRadius: 8,
-                  border: '1px solid #285c42',
-                  background: providerStatus === 'pending' ? '#ccc' : 'white',
-                  color: '#285c42',
-                  fontWeight: 600,
-                  cursor:
-                    providerStatus === 'pending' ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Save provider
-              </button>
-              <button
-                type="button"
-                onClick={onTestProvider}
-                disabled={providerStatus === 'pending'}
-                aria-disabled={providerStatus === 'pending'}
-                style={{
-                  padding: '0.6rem 1.2rem',
-                  borderRadius: 8,
-                  border: '1px solid #285c42',
-                  background: providerStatus === 'pending' ? '#ccc' : '#285c42',
-                  color: 'white',
-                  fontWeight: 600,
-                  cursor:
-                    providerStatus === 'pending' ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {providerStatus === 'pending'
-                  ? 'Testing…'
-                  : 'Test local connection'}
-              </button>
-            </div>
-            {providerConfigured && (
+                <span className="workflow-step-number">3</span>
+                <span>Set up category matching</span>
+              </h2>
               <p
                 style={{
                   fontSize: '0.85rem',
                   color: '#69736c',
-                  marginTop: '0.5rem',
+                  margin: '0 0 1rem',
                 }}
               >
-                Provider saved for this session only; cleared on session clear.
+                Connect an OpenAI-compatible model running on this device, such
+                as Ollama. Test the connection first; no statement data is sent
+                during the test.
               </p>
-            )}
-          </section>
+              {providerError && (
+                <div
+                  role="alert"
+                  style={{
+                    background: '#fdecea',
+                    border: '1px solid #f5c2c0',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 8,
+                    marginBottom: '1rem',
+                  }}
+                >
+                  <strong>Error [{providerError.code}]</strong>
+                  {providerError.stage
+                    ? ` at ${providerError.stage}`
+                    : ''}: {providerError.message}
+                </div>
+              )}
+              {providerStatus === 'success' && providerTestLabel && (
+                <div
+                  role="status"
+                  style={{
+                    background: '#eef6ee',
+                    border: '1px solid #b9d8b9',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 8,
+                    marginBottom: '1rem',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  Provider reachable — model: {providerTestLabel}
+                </div>
+              )}
+              <div
+                style={{ display: 'grid', gap: '0.75rem', maxWidth: '32rem' }}
+              >
+                <label
+                  htmlFor="provider-baseUrl"
+                  style={{ fontWeight: 600, fontSize: '0.9rem' }}
+                >
+                  Base URL
+                </label>
+                <input
+                  id="provider-baseUrl"
+                  type="url"
+                  value={providerBaseUrl}
+                  onChange={(e) => setProviderBaseUrl(e.target.value)}
+                  placeholder="http://127.0.0.1:11434"
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: 8,
+                    border: '1px solid #c3cec5',
+                  }}
+                />
+                <label
+                  htmlFor="provider-model"
+                  style={{ fontWeight: 600, fontSize: '0.9rem' }}
+                >
+                  Model (optional)
+                </label>
+                <input
+                  id="provider-model"
+                  type="text"
+                  value={providerModel}
+                  onChange={(e) => setProviderModel(e.target.value)}
+                  placeholder="local-model"
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: 8,
+                    border: '1px solid #c3cec5',
+                  }}
+                />
+              </div>
+              <div
+                style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}
+              >
+                <button
+                  type="button"
+                  onClick={onSaveProvider}
+                  disabled={providerStatus === 'pending'}
+                  aria-disabled={providerStatus === 'pending'}
+                  style={{
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: 8,
+                    border: '1px solid #285c42',
+                    background: providerStatus === 'pending' ? '#ccc' : 'white',
+                    color: '#285c42',
+                    fontWeight: 600,
+                    cursor:
+                      providerStatus === 'pending' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Save provider
+                </button>
+                <button
+                  type="button"
+                  onClick={onTestProvider}
+                  disabled={providerStatus === 'pending'}
+                  aria-disabled={providerStatus === 'pending'}
+                  style={{
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: 8,
+                    border: '1px solid #285c42',
+                    background:
+                      providerStatus === 'pending' ? '#ccc' : '#285c42',
+                    color: 'white',
+                    fontWeight: 600,
+                    cursor:
+                      providerStatus === 'pending' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {providerStatus === 'pending'
+                    ? 'Testing…'
+                    : 'Test local connection'}
+                </button>
+              </div>
+              {providerConfigured && (
+                <p
+                  style={{
+                    fontSize: '0.85rem',
+                    color: '#69736c',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  Provider saved for this session only; cleared on session
+                  clear.
+                </p>
+              )}
+            </section>
+          )}
 
           {/* Phase 2: Categorization */}
-          <section
-            aria-labelledby="categorize-title"
-            style={{
-              marginTop: '1.5rem',
-              background: '#fcfdf9',
-              border: '1px solid #d4dbd4',
-              borderRadius: '1rem',
-              padding: '1.5rem',
-            }}
-          >
-            <h2
-              id="categorize-title"
-              style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
+          {providerConfigured && (
+            <section
+              className={`workflow-card ${catResult ? 'workflow-card--complete' : 'workflow-card--active'}`}
+              aria-labelledby="categorize-title"
+              style={{
+                marginTop: '1.5rem',
+                background: '#fcfdf9',
+                border: '1px solid #d4dbd4',
+                borderRadius: '1rem',
+                padding: '1.5rem',
+              }}
             >
-              Categorization
-            </h2>
-            {catError && (
-              <div
-                role="alert"
-                style={{
-                  background: '#fdecea',
-                  border: '1px solid #f5c2c0',
-                  padding: '0.75rem 1rem',
-                  borderRadius: 8,
-                  marginBottom: '1rem',
-                }}
+              <h2
+                id="categorize-title"
+                style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
               >
-                <strong>Error [{catError.code}]</strong>
-                {catError.stage ? ` at ${catError.stage}` : ''}:{' '}
-                {catError.message}
-              </div>
-            )}
-            <p
-              style={{
-                fontSize: '0.85rem',
-                color: '#69736c',
-                margin: '0 0 1rem',
-              }}
-            >
-              Requires imported history and a tested local provider. Proposals
-              are advisory and remain <strong>needs review</strong> until
-              explicit approval in a later phase. Replacing history invalidates
-              prior proposals.
-            </p>
-            <button
-              type="button"
-              onClick={onCategorize}
-              disabled={!canCategorize}
-              aria-disabled={!canCategorize}
-              style={{
-                padding: '0.6rem 1.2rem',
-                borderRadius: 8,
-                border: '1px solid #285c42',
-                background: !canCategorize ? '#ccc' : '#285c42',
-                color: 'white',
-                fontWeight: 600,
-                cursor: !canCategorize ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {catStatus === 'pending'
-                ? 'Categorizing…'
-                : 'Categorize transactions'}
-            </button>
-            {catStatus === 'pending' && (
-              <div className="model-progress" aria-live="polite">
+                Match categories
+              </h2>
+              {catError && (
                 <div
-                  className="model-progress__track"
-                  role="progressbar"
-                  aria-label="Local model categorization progress"
-                  aria-valuetext="Local model is running"
+                  role="alert"
+                  style={{
+                    background: '#fdecea',
+                    border: '1px solid #f5c2c0',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 8,
+                    marginBottom: '1rem',
+                  }}
                 >
-                  <span className="model-progress__indicator" />
+                  <strong>Error [{catError.code}]</strong>
+                  {catError.stage ? ` at ${catError.stage}` : ''}:{' '}
+                  {catError.message}
                 </div>
-                <p className="model-progress__label">
-                  Local model is running… This can take a moment.
+              )}
+              <p
+                style={{
+                  fontSize: '0.85rem',
+                  color: '#69736c',
+                  margin: '0 0 1rem',
+                }}
+              >
+                Create category suggestions from your Wallet history. These are
+                suggestions only—nothing is approved automatically.
+              </p>
+              <button
+                type="button"
+                onClick={onCategorize}
+                disabled={!canCategorize}
+                aria-disabled={!canCategorize}
+                style={{
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: 8,
+                  border: '1px solid #285c42',
+                  background: !canCategorize ? '#ccc' : '#285c42',
+                  color: 'white',
+                  fontWeight: 600,
+                  cursor: !canCategorize ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {catStatus === 'pending'
+                  ? 'Categorizing…'
+                  : 'Categorize transactions'}
+              </button>
+              {catStatus === 'pending' && (
+                <div className="model-progress" aria-live="polite">
+                  <div
+                    className="model-progress__track"
+                    role="progressbar"
+                    aria-label="Local model categorization progress"
+                    aria-valuetext="Local model is running"
+                  >
+                    <span className="model-progress__indicator" />
+                  </div>
+                  <p className="model-progress__label">
+                    Local model is running… This can take a moment.
+                  </p>
+                </div>
+              )}
+              {!historySummary && (
+                <p
+                  style={{
+                    fontSize: '0.85rem',
+                    color: '#b42318',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  Import Wallet history before categorizing.
                 </p>
-              </div>
-            )}
-            {!historySummary && (
-              <p
-                style={{
-                  fontSize: '0.85rem',
-                  color: '#b42318',
-                  marginTop: '0.5rem',
-                }}
-              >
-                Import Wallet history before categorizing.
-              </p>
-            )}
-            {historySummary && !providerConfigured && (
-              <p
-                style={{
-                  fontSize: '0.85rem',
-                  color: '#b42318',
-                  marginTop: '0.5rem',
-                }}
-              >
-                Configure and test a local provider before categorizing.
-              </p>
-            )}
-          </section>
+              )}
+              {historySummary && !providerConfigured && (
+                <p
+                  style={{
+                    fontSize: '0.85rem',
+                    color: '#b42318',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  Configure and test a local provider before categorizing.
+                </p>
+              )}
+            </section>
+          )}
 
           {catResult && (
             <section
+              className="data-panel"
               aria-labelledby="proposals-title"
               style={{
                 marginTop: '1.5rem',
@@ -3407,9 +3438,114 @@ export function App() {
             </section>
           )}
 
+          <section
+            className="workflow-card workflow-card--subtle"
+            aria-labelledby="wallet-transaction-details-title"
+            style={{
+              marginTop: '1.5rem',
+              background: '#fcfdf9',
+              border: '1px solid #d4dbd4',
+              borderRadius: '1rem',
+              padding: '1.5rem',
+            }}
+          >
+            <h2
+              id="wallet-transaction-details-title"
+              style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
+            >
+              Optional Wallet details
+            </h2>
+            <p>
+              You can skip these for now. They are applied only if you choose to
+              send approved transactions to Wallet.
+            </p>
+            <label
+              htmlFor="payment-date"
+              style={{
+                display: 'block',
+                fontWeight: 600,
+                marginBottom: '0.35rem',
+              }}
+            >
+              Payment date
+            </label>
+            <p
+              id="payment-date-help"
+              style={{
+                fontSize: '0.85rem',
+                color: '#69736c',
+                margin: '0 0 0.75rem',
+              }}
+            >
+              This will be the final transaction date in Wallet. The original
+              imported date will be added at the start of each description.
+            </p>
+            <input
+              id="payment-date"
+              type="date"
+              value={paymentDate}
+              onChange={(event) => setPaymentDate(event.target.value)}
+              required
+              aria-describedby="payment-date-help"
+              style={{
+                display: 'block',
+                width: '100%',
+                maxWidth: '16rem',
+                boxSizing: 'border-box',
+                padding: '0.5rem 0.75rem',
+                borderRadius: 8,
+                border: '1px solid #c3cec5',
+                marginBottom: '1.25rem',
+              }}
+            />
+            <label
+              htmlFor="description-id"
+              style={{
+                display: 'block',
+                fontWeight: 600,
+                marginBottom: '0.35rem',
+              }}
+            >
+              Unique description ID (optional)
+            </label>
+            <p
+              id="description-id-help"
+              style={{
+                fontSize: '0.85rem',
+                color: '#69736c',
+                margin: '0 0 0.75rem',
+              }}
+            >
+              Enter an ID to add it to every imported transaction description.
+              It must be unique so you can search for this import in the Wallet
+              app.
+            </p>
+            <input
+              id="description-id"
+              type="text"
+              value={descriptionId}
+              onChange={(event) => setDescriptionId(event.target.value)}
+              maxLength={80}
+              placeholder="For example: BDO-2026-07-29-01"
+              aria-label="Unique description ID (optional)"
+              aria-describedby="description-id-help"
+              autoComplete="off"
+              style={{
+                display: 'block',
+                width: '100%',
+                maxWidth: '32rem',
+                boxSizing: 'border-box',
+                padding: '0.5rem 0.75rem',
+                borderRadius: 8,
+                border: '1px solid #c3cec5',
+              }}
+            />
+          </section>
+
           {/* Phase 3: Review Workspace */}
           {reviewItems && reviewSummary && (
             <section
+              className={`workflow-card ${reviewSummary.needsReviewCount > 0 ? 'workflow-card--active' : 'workflow-card--complete'}`}
               id="review-workspace"
               aria-labelledby="review-title"
               style={{
@@ -4558,6 +4694,7 @@ export function App() {
           {/* Phase 4 Wallet Commit */}
           {reviewSummary && (reviewSummary.approvedCount > 0 || isDemo) && (
             <section
+              className="workflow-card workflow-card--external"
               id="wallet-section"
               aria-labelledby="wallet-title"
               style={{
@@ -4574,7 +4711,7 @@ export function App() {
                 style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
               >
                 <span className="workflow-step-number">5</span>
-                <span>Wallet commit — sends data externally</span>
+                <span>Wallet commit — send approved expenses</span>
               </h2>
               {isDemo && (
                 <div
@@ -4602,11 +4739,9 @@ export function App() {
                   margin: '0 0 1rem',
                 }}
               >
-                Approved transactions will be sent to Wallet REST at
-                https://rest.budgetbakers.com/wallet. This is an external
-                network action; no data is sent until you explicitly confirm the
-                dry-run snapshot. Token is kept only in server session memory
-                and never shown again.
+                This optional step connects to Wallet. First you will choose a
+                destination and see the exact records in a dry run. Nothing is
+                sent until you confirm the final summary.
               </p>
               {walletError && (
                 <div
@@ -4655,6 +4790,8 @@ export function App() {
                   disabled={isDemo}
                   placeholder="Paste Wallet Bearer token"
                   autoComplete="off"
+                  minLength={10}
+                  maxLength={4096}
                   style={{
                     padding: '0.5rem 0.75rem',
                     borderRadius: 8,
@@ -5319,6 +5456,7 @@ export function App() {
           {/* Diagnostics — optional, explicit, previewable, local-only, redacted */}
           {result && (
             <section
+              className="utility-panel"
               aria-labelledby="diagnostics-title"
               style={{
                 marginTop: '1.5rem',
@@ -5341,14 +5479,9 @@ export function App() {
                   margin: '0 0 1rem',
                 }}
               >
-                Generates a redacted bundle locally — no upload, no auto-attach.
-                Includes only app/Node/OS-family versions, feature flags,
-                non-sensitive limits, parser/provider IDs (not endpoints),
-                pipeline stage, safe issue codes, bounded counts/timing buckets,
-                and Wallet status counts. Excludes all document/history bytes,
-                transaction fields, descriptions, dates, amounts, notes,
-                categories, prompts, tokens, paths, and Wallet IDs.{' '}
-                <strong>Preview before downloading.</strong>
+                Use this only when troubleshooting. Preview the redacted report
+                before downloading it; statement content, transaction details,
+                tokens, file paths, and Wallet IDs are excluded.
               </p>
               {diagnosticsError && (
                 <div
@@ -5456,7 +5589,10 @@ export function App() {
             </section>
           )}
 
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
+          <div
+            className="session-actions"
+            style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}
+          >
             {!showClearConfirm ? (
               <button
                 type="button"
