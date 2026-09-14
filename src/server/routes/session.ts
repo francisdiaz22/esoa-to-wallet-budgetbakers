@@ -281,8 +281,7 @@ router.post(
     const requestId = makeRequestId();
     const id = (req.params as { id: string }).id;
     const filesMap = req.files as
-      | Record<string, Express.Multer.File[] | undefined>
-      | undefined;
+      Record<string, Express.Multer.File[] | undefined> | undefined;
     const files = filesMap?.['statementPages'] ?? [];
     if (files.length === 0) {
       return errorResponse(res, {

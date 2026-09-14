@@ -262,7 +262,8 @@ export class IngestionService {
         },
       };
     }
-    const workspace = existingEntry?.workspace ?? new TemporaryWorkspace(sessionId);
+    const workspace =
+      existingEntry?.workspace ?? new TemporaryWorkspace(sessionId);
     const fail = (error: ServiceError): { error: ServiceError } => {
       if (!existingEntry) workspace.clear();
       return { error };
@@ -427,11 +428,15 @@ export class IngestionService {
 
     let parsed;
     try {
-      if (existingEntry && registryResult.parser.id !== existingEntry.result.parserId) {
+      if (
+        existingEntry &&
+        registryResult.parser.id !== existingEntry.result.parserId
+      ) {
         return fail({
           status: 422,
           code: 'unsupported_layout',
-          message: 'Layout not recognized: continuation parser differs from the initial statement.',
+          message:
+            'Layout not recognized: continuation parser differs from the initial statement.',
           stage: 'parsing',
         });
       }
@@ -470,8 +475,14 @@ export class IngestionService {
     if (existingEntry) {
       parsed = {
         ...parsed,
-        transactions: [...existingEntry.result.transactions, ...parsed.transactions],
-        excludedRows: [...existingEntry.result.excludedRows, ...parsed.excludedRows],
+        transactions: [
+          ...existingEntry.result.transactions,
+          ...parsed.transactions,
+        ],
+        excludedRows: [
+          ...existingEntry.result.excludedRows,
+          ...parsed.excludedRows,
+        ],
         issues: [...existingEntry.result.issues, ...parsed.issues],
         recognizedCandidateCount:
           parsed.recognizedCandidateCount +
@@ -514,7 +525,12 @@ export class IngestionService {
       ? [...(existingEntry.result.fileStatuses ?? []), ...pageStatuses]
       : pageStatuses;
     const stored = existingEntry
-      ? (this.sessionStore.updateExtraction(sessionId, result, existingEntry.parserContext), result)
+      ? (this.sessionStore.updateExtraction(
+          sessionId,
+          result,
+          existingEntry.parserContext,
+        ),
+        result)
       : this.sessionStore.createWithId(
           sessionId,
           {

@@ -317,7 +317,11 @@ export class LocalTesseractOcrEngine implements OcrEngine {
         // page column-by-column. A sparse-text pass often restores the visual
         // row order needed by table parsers. The PNB header is distinctive
         // enough to scope this extra pass without changing other layouts.
-        if (/account\s+details|trans\s+date|reference\s+number/i.test(recognized.data.text)) {
+        if (
+          /account\s+details|trans\s+date|reference\s+number/i.test(
+            recognized.data.text,
+          )
+        ) {
           await worker.setParameters({
             tessedit_pageseg_mode: PSM.SPARSE_TEXT,
           });

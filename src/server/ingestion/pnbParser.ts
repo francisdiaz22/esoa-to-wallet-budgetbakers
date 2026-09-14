@@ -168,7 +168,10 @@ function parsePnbRowFromLines(
   // the same page and cap the look-ahead to avoid crossing unrelated rows.
   for (let width = 2; width <= 8; width++) {
     const chunk = lines.slice(index, index + width);
-    if (chunk.length !== width || chunk.some((line) => line.page !== lines[index].page))
+    if (
+      chunk.length !== width ||
+      chunk.some((line) => line.page !== lines[index].page)
+    )
       break;
     const rawText = chunk.map((line) => line.text).join(' ');
     const row = parsePnbRow(rawText);
