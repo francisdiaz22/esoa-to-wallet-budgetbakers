@@ -39,6 +39,7 @@ export function OnboardingPanel({
   onCategorize,
   onReview,
   onWalletSetup,
+  onNavigateStep,
   demoPending,
 }: {
   state: OnboardingState;
@@ -49,6 +50,7 @@ export function OnboardingPanel({
   onCategorize: () => void;
   onReview: () => void;
   onWalletSetup: () => void;
+  onNavigateStep: (step: number) => void;
   demoPending: boolean;
 }) {
   const reviewComplete =
@@ -98,6 +100,17 @@ export function OnboardingPanel({
       status: reviewComplete && !state.isDemo ? 'active' : 'optional',
     },
   ];
+
+  const currentStep = !state.hasExtraction
+    ? 1
+    : !state.hasHistory
+      ? 2
+      : !state.hasProposals
+        ? 3
+        : !reviewComplete
+          ? 4
+          : 5;
+  const previousStep = currentStep > 1 ? steps[currentStep - 2] : null;
 
   let eyebrow = 'Start here';
   let title = 'Choose how you want to begin';
@@ -202,13 +215,32 @@ export function OnboardingPanel({
             className={`journey-step journey-step--${step.status}`}
             aria-current={step.status === 'active' ? 'step' : undefined}
           >
-            <span className="journey-step__marker" aria-hidden="true">
-              {step.status === 'complete' ? '✓' : step.id}
-            </span>
-            <span className="journey-step__copy">
-              <span className="journey-step__short">{step.shortTitle}</span>
-              <span className="journey-step__title">{step.title}</span>
-            </span>
+            {step.status === 'complete' || step.status === 'active' ? (
+              <button
+                type="button"
+                className="journey-step__button"
+                onClick={() => onNavigateStep(step.id)}
+                aria-label={`Go to step ${step.id}: ${step.title}`}
+              >
+                <span className="journey-step__marker" aria-hidden="true">
+                  {step.status === 'complete' ? '✓' : step.id}
+                </span>
+                <span className="journey-step__copy">
+                  <span className="journey-step__short">{step.shortTitle}</span>
+                  <span className="journey-step__title">{step.title}</span>
+                </span>
+              </button>
+            ) : (
+              <>
+                <span className="journey-step__marker" aria-hidden="true">
+                  {step.id}
+                </span>
+                <span className="journey-step__copy">
+                  <span className="journey-step__short">{step.shortTitle}</span>
+                  <span className="journey-step__title">{step.title}</span>
+                </span>
+              </>
+            )}
             <span className="sr-only">
               {step.status === 'complete'
                 ? 'Complete'
@@ -243,6 +275,16 @@ export function OnboardingPanel({
               {action.label}
             </button>
           ))}
+          {previousStep && (
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => onNavigateStep(previousStep.id)}
+              aria-label={`Go back to step ${previousStep.id}: ${previousStep.title}`}
+            >
+              ← Back to {previousStep.shortTitle}
+            </button>
+          )}
         </div>
       </div>
 

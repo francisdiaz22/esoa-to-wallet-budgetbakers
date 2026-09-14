@@ -263,6 +263,31 @@ h1 {
   font-size: 0.85rem;
 }
 
+.journey-step__button {
+  display: flex;
+  width: 100%;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.journey-step__button:hover .journey-step__marker,
+.journey-step__button:focus-visible .journey-step__marker {
+  outline: 3px solid var(--blue-soft);
+  outline-offset: 2px;
+}
+
+.journey-step--locked .journey-step__button,
+.journey-step--optional .journey-step__button {
+  cursor: default;
+}
+
 .journey-step:not(:last-child)::after {
   position: absolute;
   z-index: 0;

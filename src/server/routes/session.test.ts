@@ -281,7 +281,7 @@ describe('session API', () => {
     expect(resCsv.status).toBe(422);
     expect(resCsv.body.code).toBe('unsupported_layout');
 
-    // encrypted PDF heuristic
+    // A literal /Encrypt token is not authoritative encryption detection.
     const pdfEnc = Buffer.concat([
       Buffer.from('%PDF-'),
       Buffer.from(' /Encrypt '),
@@ -293,7 +293,7 @@ describe('session API', () => {
         contentType: 'application/pdf',
       });
     expect(encRes.status).toBe(422);
-    expect(encRes.body.code).toBe('encrypted_pdf');
+    expect(encRes.body.code).toBe('unreadable_document');
   });
 
   it('routes CSV text-PDF etc and does not leave session on failure', async () => {

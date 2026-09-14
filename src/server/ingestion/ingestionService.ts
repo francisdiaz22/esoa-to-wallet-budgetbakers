@@ -23,6 +23,7 @@ import {
 import { ParserRegistry } from './parserRegistry.js';
 import { bdoParser } from './bdoParser.js';
 import { unionBankCsvParser } from './unionBankCsvParser.js';
+import { pnbParser, resolvePnbParserContext } from './pnbParser.js';
 import { validateParsedStatement, assembleResult } from './validation.js';
 
 export type ServiceError = {
@@ -48,7 +49,11 @@ export class IngestionService {
     this.ocrEngine = ocrEngine ?? new LocalTesseractOcrEngine();
     this.imageOcrExtractor = new ImageOcrExtractor(this.ocrEngine);
     this.scannedPdfOcrExtractor = new ScannedPdfOcrExtractor(this.ocrEngine);
-    this.parserRegistry = new ParserRegistry([bdoParser, unionBankCsvParser]);
+    this.parserRegistry = new ParserRegistry([
+      pnbParser,
+      bdoParser,
+      unionBankCsvParser,
+    ]);
   }
 
   /** Content-based validation + routing */
@@ -60,6 +65,7 @@ export class IngestionService {
       size: number;
     }[],
     fieldName: 'statement' | 'statementPages' | null,
+    options?: { allowSinglePage?: boolean },
   ): { validated: ValidatedInput } | { error: ServiceError } {
     if (!fieldName || files.length === 0) {
       return {
@@ -133,7 +139,7 @@ export class IngestionService {
     }
     if (fieldName === 'statementPages') {
       if (
-        files.length < LIMITS.MIN_PAGE_COUNT ||
+        (!options?.allowSinglePage && files.length < LIMITS.MIN_PAGE_COUNT) ||
         files.length > LIMITS.MAX_PAGE_COUNT
       ) {
         return {
@@ -219,28 +225,14 @@ export class IngestionService {
       // Extension/signature outside supported set already handled (detected null)
     }
 
-    // Check encrypted PDF early
-    for (const vf of validatedFiles) {
-      if (vf.detectedMime === SUPPORTED_MIME_TYPES.PDF) {
-        if (vf.buffer.includes(Buffer.from('/Encrypt'))) {
-          return {
-            error: {
-              status: 422,
-              code: 'encrypted_pdf',
-              message: 'PDF is encrypted or password-protected.',
-              stage: 'validated',
-            },
-          };
-        }
-      }
-    }
-
     return { validated: { fieldName, files: validatedFiles } };
   }
 
   async process(
     validated: ValidatedInput,
     _requestId: string,
+    options?: { pdfPassword?: string; hasPdfPassword?: boolean },
+    existingSessionId?: string,
   ): Promise<{ result: ExtractionResult } | { error: ServiceError }> {
     const SAFE_MEMORY_LIMIT = 5 * 1024 * 1024;
     const totalSize = validated.files.reduce((s, f) => s + f.size, 0);
@@ -256,10 +248,23 @@ export class IngestionService {
       };
     }
 
-    const sessionId = SessionStore.generateId();
-    const workspace = new TemporaryWorkspace(sessionId);
+    const sessionId = existingSessionId ?? SessionStore.generateId();
+    const existingEntry = existingSessionId
+      ? this.sessionStore.getEntry(existingSessionId)
+      : null;
+    if (existingSessionId && !existingEntry) {
+      return {
+        error: {
+          status: 404,
+          code: 'session_not_found',
+          message: 'Session not found or cleared.',
+          stage: 'validated',
+        },
+      };
+    }
+    const workspace = existingEntry?.workspace ?? new TemporaryWorkspace(sessionId);
     const fail = (error: ServiceError): { error: ServiceError } => {
-      workspace.clear();
+      if (!existingEntry) workspace.clear();
       return { error };
     };
 
@@ -276,14 +281,24 @@ export class IngestionService {
           extractionDoc = await this.pdfTextExtractor.extract(
             validated,
             workspace,
+            options,
           );
         } catch (e) {
           const err = e as Error & { code?: string };
-          if (err.code === 'encrypted_pdf')
+          if (
+            err.code === 'pdf_password_required' ||
+            err.code === 'pdf_password_invalid' ||
+            err.code === 'pdf_encryption_unsupported'
+          )
             return fail({
               status: 422,
-              code: 'encrypted_pdf',
-              message: 'PDF is encrypted.',
+              code: err.code,
+              message:
+                err.code === 'pdf_password_required'
+                  ? 'PDF password required.'
+                  : err.code === 'pdf_password_invalid'
+                    ? 'PDF password is incorrect.'
+                    : 'PDF encryption is not supported.',
               stage: stageExtract,
             });
           if (err.code === 'no_usable_text') {
@@ -298,6 +313,7 @@ export class IngestionService {
             extractionDoc = await this.scannedPdfOcrExtractor.extract(
               validated,
               workspace,
+              options,
             );
           } else if (err.code === 'ocr_unavailable') {
             return fail({
@@ -333,11 +349,20 @@ export class IngestionService {
       }
     } catch (e) {
       const err = e as Error & { code?: string };
-      if (err.code === 'encrypted_pdf')
+      if (
+        err.code === 'pdf_password_required' ||
+        err.code === 'pdf_password_invalid' ||
+        err.code === 'pdf_encryption_unsupported'
+      )
         return fail({
           status: 422,
-          code: 'encrypted_pdf',
-          message: 'PDF is encrypted.',
+          code: err.code,
+          message:
+            err.code === 'pdf_password_required'
+              ? 'PDF password required.'
+              : err.code === 'pdf_password_invalid'
+                ? 'PDF password is incorrect.'
+                : 'PDF encryption is not supported.',
           stage: stageExtract,
         });
       if (err.code === 'ocr_unavailable')
@@ -382,18 +407,52 @@ export class IngestionService {
       });
     }
 
+    let pageOffset = 0;
+    if (existingEntry) {
+      const offset = Math.max(
+        0,
+        ...existingEntry.result.transactions.map((t) => t.source.page ?? 0),
+        ...existingEntry.result.excludedRows.map((r) => r.page ?? 0),
+      );
+      pageOffset = offset;
+      extractionDoc = {
+        ...extractionDoc,
+        pages: extractionDoc.pages + offset,
+        lines: extractionDoc.lines.map((line) => ({
+          ...line,
+          page: line.page + offset,
+        })),
+      };
+    }
+
     let parsed;
     try {
-      const context = resolveParserContext(
-        extractionDoc,
-        registryResult.parser.id,
-      );
+      if (existingEntry && registryResult.parser.id !== existingEntry.result.parserId) {
+        return fail({
+          status: 422,
+          code: 'unsupported_layout',
+          message: 'Layout not recognized: continuation parser differs from the initial statement.',
+          stage: 'parsing',
+        });
+      }
+      const context = existingEntry
+        ? existingEntry.parserContext
+        : resolveParserContext(extractionDoc, registryResult.parser.id);
       parsed = registryResult.parser.parse(extractionDoc, context);
-    } catch {
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
       return fail({
         status: 422,
-        code: 'missing_statement_context',
-        message: 'Statement date could not be established safely.',
+        code:
+          code === 'missing_statement_context' ||
+          code === 'invalid_statement_context'
+            ? 'missing_statement_context'
+            : 'invalid_extraction',
+        message:
+          code === 'missing_statement_context' ||
+          code === 'invalid_statement_context'
+            ? 'Statement date could not be established safely.'
+            : 'Statement could not be parsed safely.',
         stage: 'parsing',
       });
     }
@@ -408,20 +467,69 @@ export class IngestionService {
       });
     }
 
-    const { result } = assembleResult(parsed, sessionId, validation.issues);
-    const stored = this.sessionStore.createWithId(
-      sessionId,
-      {
-        parserId: result.parserId,
-        statementId: result.statementId,
-        sourceFormat: result.sourceFormat,
-        transactions: result.transactions,
-        excludedRows: result.excludedRows,
-        issues: result.issues,
-        summary: result.summary,
+    if (existingEntry) {
+      parsed = {
+        ...parsed,
+        transactions: [...existingEntry.result.transactions, ...parsed.transactions],
+        excludedRows: [...existingEntry.result.excludedRows, ...parsed.excludedRows],
+        issues: [...existingEntry.result.issues, ...parsed.issues],
+        recognizedCandidateCount:
+          parsed.recognizedCandidateCount +
+          existingEntry.result.transactions.length +
+          existingEntry.result.excludedRows.length,
+      };
+    }
+    const pageStatuses = Array.from(
+      { length: extractionDoc.pages - pageOffset },
+      (_, index) => {
+        const page = pageOffset + index + 1;
+        const lineCount = extractionDoc.lines.filter(
+          (line) => line.page === page,
+        ).length;
+        const recognizedRows =
+          parsed.transactions.filter(
+            (transaction) => transaction.source.page === page,
+          ).length +
+          parsed.excludedRows.filter((row) => row.page === page).length;
+        return {
+          page,
+          status:
+            lineCount === 0
+              ? ('ocr_empty' as const)
+              : recognizedRows === 0
+                ? ('no_transaction_rows' as const)
+                : ('parsed' as const),
+          recognizedRows,
+          message:
+            lineCount === 0
+              ? 'No OCR text was recovered from this page.'
+              : recognizedRows === 0
+                ? 'OCR text was recovered, but no PNB transaction rows matched.'
+                : `${recognizedRows} transaction row(s) recognized.`,
+        };
       },
-      workspace,
     );
+    const { result } = assembleResult(parsed, sessionId, validation.issues);
+    result.fileStatuses = existingEntry
+      ? [...(existingEntry.result.fileStatuses ?? []), ...pageStatuses]
+      : pageStatuses;
+    const stored = existingEntry
+      ? (this.sessionStore.updateExtraction(sessionId, result, existingEntry.parserContext), result)
+      : this.sessionStore.createWithId(
+          sessionId,
+          {
+            parserId: result.parserId,
+            statementId: result.statementId,
+            sourceFormat: result.sourceFormat,
+            transactions: result.transactions,
+            excludedRows: result.excludedRows,
+            issues: result.issues,
+            fileStatuses: result.fileStatuses,
+            summary: result.summary,
+          },
+          workspace,
+          resolveParserContext(extractionDoc, registryResult.parser.id),
+        );
 
     return { result: stored };
   }
@@ -494,5 +602,6 @@ export function resolveParserContext(
       currency: 'PHP',
     };
   }
+  if (parserId === pnbParser.id) return resolvePnbParserContext(document);
   return resolveBdoParserContext(document);
 }

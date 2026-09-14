@@ -40,6 +40,20 @@ function containsAnchor(lines: TextLine[]): boolean {
   return hits >= 2;
 }
 
+function isPnbLayout(lines: TextLine[]): boolean {
+  const joined = normalizeForDetection(lines.map((l) => l.text).join(' '));
+  const hasPnbTableMarkers =
+    joined.includes('account details') &&
+    (joined.includes('trans date') || joined.includes('post date')) &&
+    (joined.includes('reference number') ||
+      (joined.includes('description') && joined.includes('amount')));
+  const hasBdoSpecificMarker =
+    joined.includes('bdo') ||
+    joined.includes('visa gold') ||
+    joined.includes('sale date');
+  return hasPnbTableMarkers && !hasBdoSpecificMarker;
+}
+
 // --- Normalizers ---
 
 export function parseBdoSaleDate(raw: string, statementYear: number): string {
@@ -122,6 +136,17 @@ export class BdoVisaGoldPhImageParser implements BankParser {
         matched: false,
         score: 0.2,
         reason: 'too few lines for BDO layout',
+      };
+    }
+    // PNB shares the generic "post date / description / amount" vocabulary
+    // with BDO. Exclude its distinctive account-details table before applying
+    // the date/amount density fallback below.
+    if (isPnbLayout(document.lines)) {
+      return {
+        matched: false,
+        score: 0,
+        reason: 'PNB account-details layout belongs to the PNB parser',
+        parserId: this.id,
       };
     }
     const hasAnchor = containsAnchor(document.lines);

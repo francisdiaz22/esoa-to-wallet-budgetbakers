@@ -28,6 +28,7 @@ export type ExtractionResult = {
     exclusionReason: string;
   }[];
   issues: { code: string; severity: string; message: string }[];
+  fileStatuses?: ExtractionFileStatus[];
   summary: {
     proposedCount: number;
     excludedCount: number;
@@ -42,8 +43,16 @@ export type ApiError = {
   requestId?: string;
 };
 
+export type ExtractionFileStatus = {
+  page: number;
+  status: 'parsed' | 'no_transaction_rows' | 'ocr_empty';
+  recognizedRows: number;
+  message: string;
+};
+
 export async function importStatement(
   files: File[],
+  options?: { pdfPassword?: string; hasPdfPassword?: boolean },
 ): Promise<ExtractionResult> {
   const form = new FormData();
   if (files.length === 1) {
@@ -51,6 +60,9 @@ export async function importStatement(
   } else {
     // ordered
     for (const f of files) form.append('statementPages', f, f.name);
+  }
+  if (options?.hasPdfPassword === true) {
+    form.append('pdfPassword', options.pdfPassword ?? '');
   }
   const res = await fetch('/api/session/import', {
     method: 'POST',
@@ -79,6 +91,29 @@ export async function getExtraction(
     const err = (await res.json().catch(() => ({
       code: 'unknown',
       message: 'Could not load extraction.',
+    }))) as ApiError;
+    throw Object.assign(new Error(err.message), {
+      apiError: err,
+      status: res.status,
+    });
+  }
+  return (await res.json()) as ExtractionResult;
+}
+
+export async function supplementStatement(
+  sessionId: string,
+  files: File[],
+): Promise<ExtractionResult> {
+  const form = new FormData();
+  for (const file of files) form.append('statementPages', file, file.name);
+  const res = await fetch(
+    `/api/session/${encodeURIComponent(sessionId)}/extraction/supplement`,
+    { method: 'POST', body: form },
+  );
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({
+      code: 'unknown',
+      message: 'Supplement upload failed.',
     }))) as ApiError;
     throw Object.assign(new Error(err.message), {
       apiError: err,
