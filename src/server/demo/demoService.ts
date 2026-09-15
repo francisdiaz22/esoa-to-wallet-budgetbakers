@@ -118,9 +118,11 @@ export function createDemoSession():
       transactions: assembled.result.transactions,
       excludedRows: assembled.result.excludedRows,
       issues: assembled.result.issues,
+      fileStatuses: assembled.result.fileStatuses,
       summary: assembled.result.summary,
     },
     workspace,
+    context,
   );
   markDemoSession(sessionId);
 

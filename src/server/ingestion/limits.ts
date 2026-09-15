@@ -84,6 +84,8 @@ export const LIMITS = {
   WALLET_BASE_URL: 'https://rest.budgetbakers.com/wallet' as const,
   /** Max Wallet token length (bounded password field; Wallet issues JWTs that can exceed 500 characters) */
   MAX_WALLET_TOKEN_LENGTH: 4096,
+  /** Max PDF password length in UTF-16 code units; never persisted or logged */
+  MAX_PDF_PASSWORD_LENGTH: 1024,
   /** Max Wallet response size (bounded) */
   MAX_WALLET_RESPONSE_BYTES: 512 * 1024,
   /** Wallet read/connect timeout ms */

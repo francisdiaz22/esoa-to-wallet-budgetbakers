@@ -74,6 +74,16 @@ export const ExtractionResultSchema = z.object({
   transactions: z.array(ExtractedTransactionSchema),
   excludedRows: z.array(ExcludedSourceRowSchema),
   issues: z.array(IssueSchema),
+  fileStatuses: z
+    .array(
+      z.object({
+        page: z.number().int().min(1),
+        status: z.enum(['parsed', 'no_transaction_rows', 'ocr_empty']),
+        recognizedRows: z.number().int().min(0),
+        message: z.string().min(1).max(200),
+      }),
+    )
+    .optional(),
   summary: z.object({
     proposedCount: z.number().int().min(0),
     excludedCount: z.number().int().min(0),

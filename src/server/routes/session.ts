@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { randomUUID } from 'node:crypto';
-import { LIMITS } from '../ingestion/limits.js';
+import {
+  detectMimeBySignature,
+  LIMITS,
+  SUPPORTED_MIME_TYPES,
+} from '../ingestion/limits.js';
 import { globalSessionStore } from '../ingestion/sessionStore.js';
 import { createIngestionService } from '../ingestion/ingestionService.js';
 import { FakeOcrEngine } from '../ingestion/extractors.js';
@@ -60,6 +64,14 @@ const upload = multer({
   },
 });
 
+const importUpload = upload.fields([
+  { name: 'statement', maxCount: 1 },
+  { name: 'statementPages', maxCount: LIMITS.MAX_PAGE_COUNT },
+]);
+const supplementUpload = upload.fields([
+  { name: 'statementPages', maxCount: LIMITS.MAX_PAGE_COUNT },
+]);
+
 function makeRequestId(): string {
   return randomUUID();
 }
@@ -108,10 +120,29 @@ const historyUpload = multer({
 
 router.post(
   '/import',
-  upload.fields([
-    { name: 'statement', maxCount: 1 },
-    { name: 'statementPages', maxCount: LIMITS.MAX_PAGE_COUNT },
-  ]),
+  (req, res, next) => {
+    importUpload(req, res, (error) => {
+      if (!error) {
+        next();
+        return;
+      }
+      const code = (error as Error & { code?: string }).code;
+      const field = (error as Error & { field?: string }).field;
+      const isPdfPasswordFieldError =
+        code === 'LIMIT_FIELD_SIZE' && field === 'pdfPassword';
+      return errorResponse(res, {
+        status: isPdfPasswordFieldError ? 400 : 413,
+        code: isPdfPasswordFieldError
+          ? 'invalid_pdf_password'
+          : 'limit_exceeded',
+        message: isPdfPasswordFieldError
+          ? 'Invalid PDF password.'
+          : 'Upload exceeds size or file count limit.',
+        stage: 'validated',
+        requestId: makeRequestId(),
+      });
+    });
+  },
   async (req, res) => {
     const requestId = makeRequestId();
     try {
@@ -119,6 +150,42 @@ router.post(
         Record<string, Express.Multer.File[] | undefined> | undefined;
       const hasStatement = !!filesMap?.['statement']?.length;
       const hasPages = !!filesMap?.['statementPages']?.length;
+      const body = req.body as Record<string, unknown> | undefined;
+      const hasPdfPassword =
+        !!body && Object.prototype.hasOwnProperty.call(body, 'pdfPassword');
+      const suppliedPdfPassword = body?.pdfPassword;
+
+      if (hasPdfPassword) {
+        if (
+          typeof suppliedPdfPassword !== 'string' ||
+          suppliedPdfPassword.length > LIMITS.MAX_PDF_PASSWORD_LENGTH
+        ) {
+          return errorResponse(res, {
+            status: 400,
+            code: 'invalid_pdf_password',
+            message: 'Invalid PDF password.',
+            stage: 'validated',
+            requestId,
+          });
+        }
+        const statementFile = filesMap?.['statement']?.[0];
+        if (
+          !statementFile ||
+          hasPages ||
+          (filesMap?.['statement']?.length ?? 0) !== 1 ||
+          Object.keys(body ?? {}).some((key) => key !== 'pdfPassword') ||
+          detectMimeBySignature(statementFile.buffer) !==
+            SUPPORTED_MIME_TYPES.PDF
+        ) {
+          return errorResponse(res, {
+            status: 400,
+            code: 'invalid_pdf_password_context',
+            message: 'PDF password is only valid with one statement PDF.',
+            stage: 'validated',
+            requestId,
+          });
+        }
+      }
 
       if (hasStatement && hasPages) {
         return errorResponse(res, {
@@ -164,6 +231,9 @@ router.post(
       const result = await ingestionService.process(
         validation.validated,
         requestId,
+        hasPdfPassword
+          ? { pdfPassword: suppliedPdfPassword as string, hasPdfPassword: true }
+          : undefined,
       );
       if ('error' in result) {
         return errorResponse(res, { ...result.error, requestId });
@@ -190,6 +260,61 @@ router.post(
         requestId,
       });
     }
+  },
+);
+
+router.post(
+  '/:id/extraction/supplement',
+  (req, res, next) => {
+    supplementUpload(req, res, (error) => {
+      if (!error) return next();
+      return errorResponse(res, {
+        status: 413,
+        code: 'limit_exceeded',
+        message: 'Supplement exceeds size or file count limit.',
+        stage: 'validated',
+        requestId: makeRequestId(),
+      });
+    });
+  },
+  async (req, res) => {
+    const requestId = makeRequestId();
+    const id = (req.params as { id: string }).id;
+    const filesMap = req.files as
+      Record<string, Express.Multer.File[] | undefined> | undefined;
+    const files = filesMap?.['statementPages'] ?? [];
+    if (files.length === 0) {
+      return errorResponse(res, {
+        status: 400,
+        code: 'missing_input',
+        message: 'No continuation page provided.',
+        stage: 'validated',
+        requestId,
+      });
+    }
+    const validation = ingestionService.validateInput(
+      files.map((f) => ({
+        buffer: f.buffer,
+        originalname: f.originalname,
+        mimetype: f.mimetype,
+        size: f.size,
+      })),
+      'statementPages',
+      { allowSinglePage: true },
+    );
+    if ('error' in validation) {
+      return errorResponse(res, { ...validation.error, requestId });
+    }
+    const result = await ingestionService.process(
+      validation.validated,
+      requestId,
+      undefined,
+      id,
+    );
+    if ('error' in result) {
+      return errorResponse(res, { ...result.error, requestId });
+    }
+    return res.status(201).json(result.result);
   },
 );
 

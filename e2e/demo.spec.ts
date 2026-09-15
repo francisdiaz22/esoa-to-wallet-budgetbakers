@@ -137,6 +137,7 @@ test('loads synthetic demo offline through review with blocked Wallet commit and
   expect(unexpectedRequests).toEqual([]);
 
   // Diagnostics preview (explicit, local-only, redacted)
+  await page.getByText('Troubleshooting report').click();
   await page.getByRole('button', { name: 'Preview diagnostics' }).click();
   await expect(page.getByLabel('Diagnostics preview')).toBeVisible({
     timeout: 10000,

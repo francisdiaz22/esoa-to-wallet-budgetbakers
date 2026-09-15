@@ -227,6 +227,32 @@ describe('Phase 1 import UI', () => {
     expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
   });
 
+  it('keeps earlier steps reachable and allows replacing the statement', async () => {
+    const user = userEvent.setup();
+    api.importStatement.mockResolvedValue(resultFixture());
+    render(<App />);
+
+    await user.upload(screen.getByLabelText(/drag a document/i), imageFile());
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Go back to step 1: Import a statement',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Choose a different statement' }),
+    ).toBeInTheDocument();
+
+    await user.upload(
+      screen.getByLabelText('Choose a different statement'),
+      imageFile('replacement.jpg'),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Import replacement' }),
+    ).toBeEnabled();
+  });
+
   it('opens source details from the keyboard and clears all in-memory UI state without browser persistence', async () => {
     const user = userEvent.setup();
     const storageWrite = vi.spyOn(Storage.prototype, 'setItem');

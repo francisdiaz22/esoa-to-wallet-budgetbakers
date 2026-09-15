@@ -10,6 +10,7 @@ import {
 import { OnboardingPanel } from './onboarding/OnboardingPanel';
 import {
   importStatement,
+  supplementStatement,
   getExtraction,
   clearSession,
   clearSessionOnPageExit,
@@ -55,6 +56,169 @@ import {
 type Status = 'idle' | 'pending' | 'success' | 'error';
 type Phase2Status = 'idle' | 'pending' | 'success' | 'error';
 
+type WalletCategoryOption = WalletSetupResponse['categories'][number];
+
+function sortWalletCategories(categories: WalletCategoryOption[]) {
+  const byId = new Map(
+    categories.map((category) => [category.walletCategoryId, category]),
+  );
+  const pathCache = new Map<string, string[]>();
+
+  const getPath = (
+    category: WalletCategoryOption,
+    visiting = new Set<string>(),
+  ): string[] => {
+    const cached = pathCache.get(category.walletCategoryId);
+    if (cached) return cached;
+    if (!category.parentId || visiting.has(category.walletCategoryId)) {
+      const path = [category.walletCategoryLabel];
+      pathCache.set(category.walletCategoryId, path);
+      return path;
+    }
+    const parent = byId.get(category.parentId);
+    const path = parent
+      ? [
+          ...getPath(parent, new Set(visiting).add(category.walletCategoryId)),
+          category.walletCategoryLabel,
+        ]
+      : [category.walletCategoryLabel];
+    pathCache.set(category.walletCategoryId, path);
+    return path;
+  };
+
+  return categories
+    .filter((category) => !category.isGroup)
+    .map((category) => ({ category, path: getPath(category) }))
+    .sort((a, b) => {
+      const pathCompare = a.path
+        .map((part) => part.toLocaleLowerCase())
+        .join('\u0000')
+        .localeCompare(
+          b.path.map((part) => part.toLocaleLowerCase()).join('\u0000'),
+        );
+      return (
+        pathCompare ||
+        a.category.walletCategoryLabel.localeCompare(
+          b.category.walletCategoryLabel,
+        )
+      );
+    });
+}
+
+function WalletCategoryPicker({
+  localCategory,
+  value,
+  suggested,
+  categories,
+  onChange,
+}: {
+  localCategory: string;
+  value: string;
+  suggested?: WalletCategoryOption;
+  categories: WalletCategoryOption[];
+  onChange: (walletCategoryId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const sortedCategories = sortWalletCategories(categories);
+  const selected = sortedCategories.find(
+    ({ category }) => category.walletCategoryId === value,
+  );
+  const selectedLabel = selected?.path.join(' › ') ?? '';
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filtered = normalizedQuery
+    ? sortedCategories.filter(({ category, path }) =>
+        `${path.join(' ')} ${category.walletCategoryLabel}`
+          .toLocaleLowerCase()
+          .includes(normalizedQuery),
+      )
+    : sortedCategories;
+
+  return (
+    <div style={{ position: 'relative', minWidth: '20rem' }}>
+      <input
+        type="search"
+        value={open ? query : selectedLabel}
+        placeholder="Search categories…"
+        onFocus={() => {
+          setOpen(true);
+          setQuery('');
+        }}
+        onChange={(e) => {
+          setOpen(true);
+          setQuery(e.target.value);
+        }}
+        aria-label={`Search and map ${localCategory} to Wallet category`}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={`wallet-category-options-${localCategory}`}
+        style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: '0.45rem 0.6rem',
+          borderRadius: 6,
+          border: '1px solid #c3cec5',
+        }}
+      />
+      {open && (
+        <div
+          id={`wallet-category-options-${localCategory}`}
+          role="listbox"
+          style={{
+            position: 'absolute',
+            zIndex: 5,
+            top: 'calc(100% + 0.25rem)',
+            left: 0,
+            right: 0,
+            maxHeight: '16rem',
+            overflowY: 'auto',
+            background: 'white',
+            border: '1px solid #c3cec5',
+            borderRadius: 6,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          }}
+        >
+          {filtered.length > 0 ? (
+            filtered.map(({ category, path }) => (
+              <button
+                key={category.walletCategoryId}
+                type="button"
+                role="option"
+                aria-selected={category.walletCategoryId === value}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(category.walletCategoryId);
+                  setQuery('');
+                  setOpen(false);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '0.5rem 0.6rem',
+                  border: 0,
+                  background:
+                    category.walletCategoryId === value ? '#eef6ee' : 'white',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {path.join(' › ')}
+                {suggested?.walletCategoryId === category.walletCategoryId
+                  ? ' ★ suggested'
+                  : ''}
+              </button>
+            ))
+          ) : (
+            <div style={{ padding: '0.6rem', color: '#69736c' }}>
+              No matching Wallet categories
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   const renderLegacyReviewWorkspace: boolean = false;
   const [files, setFiles] = useState<File[]>([]);
@@ -64,7 +228,25 @@ export function App() {
   const [result, setResult] = useState<ExtractionResult | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState('');
+  const [showPdfPasswordPrompt, setShowPdfPasswordPrompt] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replacementFileInputRef = useRef<HTMLInputElement>(null);
+  const supplementFileInputRef = useRef<HTMLInputElement>(null);
+  const [supplementFiles, setSupplementFiles] = useState<File[]>([]);
+  const pdfPasswordInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showPdfPasswordPrompt) pdfPasswordInputRef.current?.focus();
+  }, [showPdfPasswordPrompt]);
+
+  useEffect(
+    () => () => {
+      setPdfPassword('');
+      if (pdfPasswordInputRef.current) pdfPasswordInputRef.current.value = '';
+    },
+    [],
+  );
 
   // Phase 2 states
   const [historyFile, setHistoryFile] = useState<File | null>(null);
@@ -190,6 +372,9 @@ export function App() {
     setFiles(arr);
     setError(null);
     setStatus('idle');
+    setPdfPassword('');
+    setShowPdfPasswordPrompt(false);
+    if (pdfPasswordInputRef.current) pdfPasswordInputRef.current.value = '';
   }, []);
 
   const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -212,12 +397,19 @@ export function App() {
 
   const onImport = async () => {
     if (files.length === 0 || status === 'pending') return;
+    const hasPassword = showPdfPasswordPrompt;
+    const passwordForRequest = hasPassword ? pdfPassword : undefined;
     setStatus('pending');
     setError(null);
     try {
-      const r = await importStatement(files);
+      const r = await importStatement(files, {
+        pdfPassword: passwordForRequest,
+        hasPdfPassword: hasPassword,
+      });
       setResult(r);
+      setFiles([]);
       setStatus('success');
+      setShowPdfPasswordPrompt(false);
       setSelectedId(null);
       // reset phase2 on new extraction
       setHistorySummary(null);
@@ -249,6 +441,39 @@ export function App() {
       setWalletResults(null);
       setShowWalletConfirm(false);
       setWalletThrottleWaitMs(null);
+    } catch (e) {
+      const err = e as Error & { apiError?: ApiError };
+      const nextError = err.apiError ?? {
+        code: 'unknown',
+        message: err.message,
+      };
+      setError(nextError);
+      if (
+        nextError.code === 'pdf_password_required' ||
+        nextError.code === 'pdf_password_invalid'
+      ) {
+        setShowPdfPasswordPrompt(true);
+      } else if (nextError.code === 'pdf_encryption_unsupported') {
+        setShowPdfPasswordPrompt(false);
+      }
+      setStatus('error');
+    } finally {
+      setPdfPassword('');
+      if (pdfPasswordInputRef.current) pdfPasswordInputRef.current.value = '';
+    }
+  };
+
+  const onSupplementImport = async () => {
+    if (!result || supplementFiles.length === 0 || status === 'pending') return;
+    setStatus('pending');
+    setError(null);
+    try {
+      const next = await supplementStatement(result.sessionId, supplementFiles);
+      setResult(next);
+      setSupplementFiles([]);
+      setStatus('success');
+      if (supplementFileInputRef.current)
+        supplementFileInputRef.current.value = '';
     } catch (e) {
       const err = e as Error & { apiError?: ApiError };
       setError(err.apiError ?? { code: 'unknown', message: err.message });
@@ -721,7 +946,14 @@ export function App() {
     const mappingsArray = distinctCats
       .map((cat) => ({
         localCategoryName: cat,
-        walletCategoryId: walletMappings[cat],
+        walletCategoryId:
+          walletMappings[cat] ??
+          walletSetup?.categories.find(
+            (c) =>
+              !c.isGroup &&
+              c.walletCategoryLabel.toLowerCase().trim() ===
+                cat.toLowerCase().trim(),
+          )?.walletCategoryId,
       }))
       .filter((m) => !!m.walletCategoryId);
     if (mappingsArray.length !== distinctCats.length) {
@@ -977,6 +1209,8 @@ export function App() {
     const sid = result?.sessionId;
     setResult(null);
     setFiles([]);
+    setPdfPassword('');
+    setShowPdfPasswordPrompt(false);
     setError(null);
     setStatus('idle');
     setSelectedId(null);
@@ -1020,6 +1254,7 @@ export function App() {
     setDiagnosticsError(null);
     setDiagnosticsPending(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (pdfPasswordInputRef.current) pdfPasswordInputRef.current.value = '';
     if (historyInputRef.current) historyInputRef.current.value = '';
     if (!sid) return;
     try {
@@ -1130,6 +1365,18 @@ export function App() {
             .getElementById('wallet-section')
             ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         }
+        onNavigateStep={(step) => {
+          const sectionIdByStep: Record<number, string> = {
+            1: 'import-section',
+            2: 'history-section',
+            3: 'categorize-section',
+            4: 'review-workspace',
+            5: 'wallet-section',
+          };
+          document
+            .getElementById(sectionIdByStep[step])
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
         demoPending={demoPending}
       />
 
@@ -1201,6 +1448,7 @@ export function App() {
 
       {!result ? (
         <section
+          id="import-section"
           className="workflow-card workflow-card--active"
           aria-labelledby="import-title"
           style={{
@@ -1270,6 +1518,75 @@ export function App() {
               {files
                 .map((f) => `${f.name} (${(f.size / 1024).toFixed(1)} KB)`)
                 .join(', ')}
+            </div>
+          )}
+
+          {showPdfPasswordPrompt && files.length === 1 && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                border: '1px solid #d4dbd4',
+                borderRadius: 8,
+                background: '#f7faf7',
+              }}
+            >
+              <label
+                htmlFor="pdf-password"
+                style={{
+                  display: 'block',
+                  fontWeight: 600,
+                  marginBottom: '0.4rem',
+                }}
+              >
+                PDF password
+              </label>
+              <input
+                ref={pdfPasswordInputRef}
+                id="pdf-password"
+                type="password"
+                value={pdfPassword}
+                onChange={(event) => setPdfPassword(event.target.value)}
+                onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void onImport();
+                  } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setPdfPassword('');
+                    setShowPdfPasswordPrompt(false);
+                    setError(null);
+                    if (pdfPasswordInputRef.current)
+                      pdfPasswordInputRef.current.value = '';
+                  }
+                }}
+                autoComplete="off"
+                aria-describedby="pdf-password-hint"
+                disabled={status === 'pending'}
+                style={{ padding: '0.5rem', minWidth: 'min(100%, 20rem)' }}
+              />
+              <p
+                id="pdf-password-hint"
+                style={{ fontSize: '0.85rem', color: '#69736c' }}
+              >
+                This password is used only for this local import attempt and is
+                not saved.
+              </p>
+              <button
+                type="button"
+                onClick={onImport}
+                disabled={status === 'pending'}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: 6,
+                  border: '1px solid #285c42',
+                  background: status === 'pending' ? '#ccc' : '#285c42',
+                  color: 'white',
+                  fontWeight: 600,
+                }}
+              >
+                {status === 'pending' ? 'Retrying…' : 'Retry import'}
+              </button>
             </div>
           )}
 
@@ -2448,6 +2765,10 @@ export function App() {
                 onClick={() => {
                   setFiles([]);
                   if (fileInputRef.current) fileInputRef.current.value = '';
+                  setPdfPassword('');
+                  setShowPdfPasswordPrompt(false);
+                  if (pdfPasswordInputRef.current)
+                    pdfPasswordInputRef.current.value = '';
                   setError(null);
                 }}
                 style={{
@@ -2463,7 +2784,7 @@ export function App() {
           </div>
         </section>
       ) : (
-        <section aria-labelledby="results-title">
+        <section id="import-section" aria-labelledby="results-title">
           <div
             className="result-overview"
             style={{
@@ -2477,6 +2798,113 @@ export function App() {
             <h2 id="results-title" style={{ margin: '0 0 0.5rem' }}>
               Extraction results
             </h2>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: '0.65rem',
+                marginBottom: '1rem',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => replacementFileInputRef.current?.click()}
+                style={{
+                  padding: '0.55rem 0.9rem',
+                  borderRadius: 8,
+                  border: '1px solid #285c42',
+                  background: 'white',
+                  color: '#285c42',
+                  fontWeight: 600,
+                }}
+              >
+                Choose a different statement
+              </button>
+              {result.parserId === 'pnb-ph-e-soa-v1' && (
+                <button
+                  type="button"
+                  onClick={() => supplementFileInputRef.current?.click()}
+                  style={{
+                    padding: '0.55rem 0.9rem',
+                    borderRadius: 8,
+                    border: '1px solid #285c42',
+                    background: 'white',
+                    color: '#285c42',
+                    fontWeight: 600,
+                  }}
+                >
+                  Add continuation page
+                </button>
+              )}
+              <input
+                ref={supplementFileInputRef}
+                type="file"
+                multiple
+                accept=".jpg,.jpeg,.png,.webp,.tif,.tiff,.bmp"
+                onChange={(event) => {
+                  setSupplementFiles(
+                    event.target.files ? Array.from(event.target.files) : [],
+                  );
+                  setError(null);
+                }}
+                aria-label="Add continuation page"
+                style={{ display: 'none' }}
+              />
+              {supplementFiles.length > 0 && (
+                <>
+                  <span style={{ fontSize: '0.9rem', color: '#69736c' }}>
+                    {supplementFiles.map((file) => file.name).join(', ')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onSupplementImport}
+                    disabled={status === 'pending'}
+                    style={{
+                      padding: '0.55rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #285c42',
+                      background: status === 'pending' ? '#ccc' : '#285c42',
+                      color: 'white',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {status === 'pending' ? 'Adding…' : 'Add pages'}
+                  </button>
+                </>
+              )}
+              <input
+                ref={replacementFileInputRef}
+                type="file"
+                multiple
+                accept=".csv,.pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff,.bmp"
+                onChange={onInputChange}
+                aria-label="Choose a different statement"
+                style={{ display: 'none' }}
+              />
+              {files.length > 0 && (
+                <>
+                  <span style={{ fontSize: '0.9rem', color: '#69736c' }}>
+                    {files.map((file) => file.name).join(', ')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onImport}
+                    disabled={status === 'pending'}
+                    style={{
+                      padding: '0.55rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #285c42',
+                      background: status === 'pending' ? '#ccc' : '#285c42',
+                      color: 'white',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {status === 'pending' ? 'Importing…' : 'Import replacement'}
+                  </button>
+                </>
+              )}
+            </div>
             <div
               style={{
                 display: 'flex',
@@ -2515,6 +2943,39 @@ export function App() {
                 : `${result.issues.length} issue(s)`}
               . Use source details to audit each row.
             </p>
+            {result.fileStatuses && result.fileStatuses.length > 0 && (
+              <div
+                aria-label="Page processing status"
+                style={{
+                  marginTop: '0.75rem',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  fontSize: '0.85rem',
+                }}
+              >
+                {result.fileStatuses.map((file) => (
+                  <span
+                    key={file.page}
+                    title={file.message}
+                    style={{
+                      padding: '0.3rem 0.5rem',
+                      borderRadius: 6,
+                      background:
+                        file.status === 'parsed' ? '#e5f3e8' : '#fff3cd',
+                      color: file.status === 'parsed' ? '#245b35' : '#725b00',
+                    }}
+                  >
+                    Page {file.page}:{' '}
+                    {file.status === 'parsed'
+                      ? `parsed (${file.recognizedRows})`
+                      : file.status === 'ocr_empty'
+                        ? 'OCR empty'
+                        : 'no transaction rows'}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div
@@ -2761,6 +3222,7 @@ export function App() {
 
           {/* Phase 2: History import */}
           <section
+            id="history-section"
             className={`workflow-card ${historySummary ? 'workflow-card--complete' : 'workflow-card--active'}`}
             aria-labelledby="history-title"
             style={{
@@ -3090,6 +3552,7 @@ export function App() {
           {/* Phase 2: Categorization */}
           {providerConfigured && (
             <section
+              id="categorize-section"
               className={`workflow-card ${catResult ? 'workflow-card--complete' : 'workflow-card--active'}`}
               aria-labelledby="categorize-title"
               style={{
@@ -4977,39 +5440,38 @@ export function App() {
                             >
                               <td style={{ padding: '0.5rem' }}>{localCat}</td>
                               <td style={{ padding: '0.5rem' }}>
-                                <select
-                                  value={walletMappings[localCat] ?? ''}
-                                  onChange={(e) =>
+                                <WalletCategoryPicker
+                                  localCategory={localCat}
+                                  value={
+                                    walletMappings[localCat] ??
+                                    suggested?.walletCategoryId ??
+                                    ''
+                                  }
+                                  suggested={suggested}
+                                  categories={walletSetup.categories}
+                                  onChange={(walletCategoryId) =>
                                     setWalletMappings((prev) => ({
                                       ...prev,
-                                      [localCat]: e.target.value,
+                                      [localCat]: walletCategoryId,
                                     }))
                                   }
-                                  aria-label={`Map ${localCat} to Wallet category`}
-                                  style={{
-                                    padding: '0.4rem',
-                                    borderRadius: 6,
-                                    border: '1px solid #c3cec5',
-                                    minWidth: '16rem',
-                                  }}
-                                >
-                                  <option value="">— select —</option>
-                                  {walletSetup.categories
-                                    .filter((c) => !c.isGroup)
-                                    .map((c) => (
-                                      <option
-                                        key={c.walletCategoryId}
-                                        value={c.walletCategoryId}
-                                      >
-                                        {c.walletCategoryLabel}
-                                        {suggested &&
-                                        suggested.walletCategoryId ===
-                                          c.walletCategoryId
-                                          ? ' (suggested)'
-                                          : ''}
-                                      </option>
-                                    ))}
-                                </select>
+                                />
+                                {suggested && !walletMappings[localCat] && (
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      marginLeft: '0.5rem',
+                                      padding: '0.2rem 0.45rem',
+                                      borderRadius: 999,
+                                      background: '#e6f4ea',
+                                      color: '#216e39',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    Suggested match
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -5455,9 +5917,8 @@ export function App() {
 
           {/* Diagnostics — optional, explicit, previewable, local-only, redacted */}
           {result && (
-            <section
+            <details
               className="utility-panel"
-              aria-labelledby="diagnostics-title"
               style={{
                 marginTop: '1.5rem',
                 background: '#fcfdf9',
@@ -5466,22 +5927,24 @@ export function App() {
                 padding: '1.5rem',
               }}
             >
-              <h2
-                id="diagnostics-title"
-                style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}
+              <summary
+                style={{
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  color: '#285c42',
+                }}
               >
-                Optional diagnostics (redacted, local download)
-              </h2>
+                Troubleshooting report
+              </summary>
               <p
                 style={{
                   fontSize: '0.85rem',
                   color: '#69736c',
-                  margin: '0 0 1rem',
+                  margin: '1rem 0',
                 }}
               >
-                Use this only when troubleshooting. Preview the redacted report
-                before downloading it; statement content, transaction details,
-                tokens, file paths, and Wallet IDs are excluded.
+                Only use this if support asks for it. It contains redacted
+                technical information and is saved only to your device.
               </p>
               {diagnosticsError && (
                 <div
@@ -5583,10 +6046,10 @@ export function App() {
                   marginTop: '0.5rem',
                 }}
               >
-                Never automatically attached or uploaded. Delete the file after
-                use if no longer needed.
+                It is never attached or uploaded automatically. Delete the file
+                after use if you no longer need it.
               </p>
-            </section>
+            </details>
           )}
 
           <div

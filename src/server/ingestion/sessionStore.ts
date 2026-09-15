@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ExtractionResult } from './contracts.js';
+import type { ExtractionResult, ParserContext } from './contracts.js';
 import { TemporaryWorkspace } from './workspace.js';
 import type {
   WalletHistoryRecord,
@@ -87,6 +87,7 @@ export type Phase4State = {
 
 type SessionEntry = {
   result: ExtractionResult;
+  parserContext: ParserContext;
   workspace: TemporaryWorkspace;
   createdAt: number;
   phase2?: Phase2State;
@@ -101,6 +102,7 @@ export class SessionStore {
   create(
     result: Omit<ExtractionResult, 'sessionId'>,
     workspace: TemporaryWorkspace,
+    parserContext: ParserContext,
   ): ExtractionResult {
     const sessionId = randomUUID();
     const full: ExtractionResult = {
@@ -111,6 +113,7 @@ export class SessionStore {
     // Patch sessionId inside result to match
     const entry: SessionEntry = {
       result: full,
+      parserContext,
       workspace,
       createdAt: Date.now(),
     };
@@ -130,16 +133,44 @@ export class SessionStore {
     sessionId: string,
     result: Omit<ExtractionResult, 'sessionId'>,
     workspace: TemporaryWorkspace,
+    parserContext: ParserContext,
   ): ExtractionResult {
     if (workspace.sessionId !== sessionId)
       throw new Error('session/workspace id mismatch');
     const full: ExtractionResult = { ...result, sessionId };
     this.sessions.set(sessionId, {
       result: full,
+      parserContext,
       workspace,
       createdAt: Date.now(),
     });
     return full;
+  }
+
+  getParserContext(sessionId: string): ParserContext | null {
+    return this.sessions.get(sessionId)?.parserContext ?? null;
+  }
+
+  updateExtraction(
+    sessionId: string,
+    result: ExtractionResult,
+    parserContext: ParserContext,
+  ): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return false;
+    entry.result = result;
+    entry.parserContext = parserContext;
+    if (entry.phase2) {
+      entry.phase2.proposals = undefined;
+      entry.phase2.categorizationResult = undefined;
+    }
+    entry.phase3 = undefined;
+    if (entry.phase4) {
+      entry.phase4.catalog = undefined;
+      entry.phase4.selection = undefined;
+      entry.phase4.snapshot = undefined;
+    }
+    return true;
   }
 
   get(sessionId: string): ExtractionResult | null {

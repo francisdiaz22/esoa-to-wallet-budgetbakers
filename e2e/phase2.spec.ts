@@ -322,9 +322,8 @@ test('runs categorization, review, and Wallet commit/recovery without browser-si
   await page
     .getByLabel(/destination account/i)
     .selectOption('wallet-account-1');
-  await page
-    .getByLabel(/^map .* to wallet category$/i)
-    .selectOption({ index: 1 });
+  await page.getByLabel(/^search and map .* to wallet category$/i).click();
+  await page.getByRole('listbox').getByRole('option').first().click();
   await page.getByRole('button', { name: 'Save selection & mappings' }).click();
   await page.getByRole('button', { name: 'Create dry-run' }).click();
   await expect(page.getByText('Not sent yet', { exact: true })).toBeVisible();

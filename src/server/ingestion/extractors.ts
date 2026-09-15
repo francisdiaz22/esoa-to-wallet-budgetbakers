@@ -1,8 +1,8 @@
 import { LIMITS, isCsvLike, SUPPORTED_MIME_TYPES } from './limits.js';
 import type { ExtractedDocument, TextLine, SourceFormat } from './contracts.js';
 import type { TemporaryWorkspace } from './workspace.js';
-import { PDFParse } from 'pdf-parse';
-import { createWorker } from 'tesseract.js';
+import { PDFParse, PasswordException } from 'pdf-parse';
+import { createWorker, PSM } from 'tesseract.js';
 import eng from '@tesseract.js-data/eng';
 import sharp from 'sharp';
 
@@ -14,14 +14,47 @@ function codedError(code: string, message = code): CodedError {
   return error;
 }
 
-function createPdfParser(buffer: Buffer): PDFParse {
+function createPdfParser(
+  buffer: Buffer,
+  password?: string,
+  hasPassword = false,
+): PDFParse {
   return new PDFParse({
     data: buffer,
+    ...(hasPassword ? { password } : {}),
     maxImageSize: LIMITS.MAX_IMAGE_PIXELS,
     canvasMaxAreaInBytes: LIMITS.MAX_PDF_DECODED_BYTES,
     stopAtErrors: true,
     useWorkerFetch: false,
   });
+}
+
+function isUnsupportedEncryptionError(error: unknown): boolean {
+  const candidate = error as { name?: string; message?: string };
+  return (
+    candidate?.name === 'UnknownErrorException' &&
+    /unsupported encryption|encryption(?: algorithm| method)?[^\n]*unsupported/i.test(
+      candidate.message ?? '',
+    )
+  );
+}
+
+function mapPdfOpenError(
+  error: unknown,
+  hasPassword: boolean,
+): CodedError | null {
+  if (
+    error instanceof PasswordException ||
+    (error as { name?: string })?.name === 'PasswordException'
+  ) {
+    return codedError(
+      hasPassword ? 'pdf_password_invalid' : 'pdf_password_required',
+    );
+  }
+  if (isUnsupportedEncryptionError(error)) {
+    return codedError('pdf_encryption_unsupported');
+  }
+  return null;
 }
 
 async function assertPdfPageLimit(parser: PDFParse): Promise<number> {
@@ -140,32 +173,24 @@ export class PdfTextExtractor implements DocumentExtractor {
   async extract(
     input: ValidatedInput,
     _workspace: TemporaryWorkspace,
+    options?: { pdfPassword?: string; hasPdfPassword?: boolean },
   ): Promise<ExtractedDocument> {
     const buffer = input.files[0].buffer;
-    // Check encrypted PDF signature before parsing: pdf may be encrypted if contains /Encrypt
-    // header checked via includes, no need to store
-    // const header = buffer.subarray(0, 1024).toString('utf8');
-    // Simple heuristic: if buffer contains /Encrypt and not too far, treat as encrypted
-    // Real detection would use pdf parser; we keep lightweight.
-    if (buffer.includes(Buffer.from('/Encrypt'))) {
-      // Let caller handle encrypted_pdf error; we throw coded error
-      const err = new Error('encrypted_pdf') as Error & { code?: string };
-      err.code = 'encrypted_pdf';
-      throw err;
-    }
+    const hasPassword = options?.hasPdfPassword === true;
     let text: string;
     let pages: { num: number; text: string }[] = [];
     let parser: PDFParse | undefined;
     try {
-      parser = createPdfParser(buffer);
+      parser = createPdfParser(buffer, options?.pdfPassword, hasPassword);
       await assertPdfPageLimit(parser);
       const data = await parser.getText({ pageJoiner: '' });
       pages = data.pages;
       text = pages.map((page) => page.text).join('\n');
     } catch (e) {
       const err = e as Error & { code?: string };
-      if (err.code === 'encrypted_pdf' || err.code === 'pdf_page_limit')
-        throw e;
+      const mapped = mapPdfOpenError(e, hasPassword);
+      if (mapped) throw mapped;
+      if (err.code === 'pdf_page_limit') throw e;
       // If pdf-parse fails or not available, treat as no usable text
       text = '';
     } finally {
@@ -287,6 +312,103 @@ export class LocalTesseractOcrEngine implements OcrEngine {
           if (text)
             lines.push({ page: image.page, order: order++, text, confidence });
         }
+
+        // Tesseract's automatic segmentation can read a ruled continuation
+        // page column-by-column. A sparse-text pass often restores the visual
+        // row order needed by table parsers. The PNB header is distinctive
+        // enough to scope this extra pass without changing other layouts.
+        if (
+          /account\s+details|trans\s+date|reference\s+number/i.test(
+            recognized.data.text,
+          )
+        ) {
+          await worker.setParameters({
+            tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+          });
+          const tableRecognized = await worker.recognize(prepared);
+          for (const raw of tableRecognized.data.text.split(/\r?\n/)) {
+            const text = repairCommonOcrArtifacts(raw.trim());
+            if (text)
+              lines.push({
+                page: image.page,
+                order: order++,
+                text,
+                confidence: Math.max(
+                  0,
+                  Math.min(1, tableRecognized.data.confidence / 100),
+                ),
+              });
+          }
+
+          // Ruled continuation pages can still be emitted column-by-column by
+          // sparse mode. A single-block pass favors the visual row structure.
+          await worker.setParameters({
+            tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+            preserve_interword_spaces: '1',
+          });
+          const blockRecognized = await worker.recognize(prepared);
+          for (const raw of blockRecognized.data.text.split(/\r?\n/)) {
+            const text = repairCommonOcrArtifacts(raw.trim());
+            if (text)
+              lines.push({
+                page: image.page,
+                order: order++,
+                text,
+                confidence: Math.max(
+                  0,
+                  Math.min(1, blockRecognized.data.confidence / 100),
+                ),
+              });
+          }
+        }
+
+        // Table-style PNB eSOAs can put a label row (for example, STATEMENT
+        // DATE) and its value row on separate visual lines. The default page
+        // mode may read the labels but omit the small value row entirely. A
+        // header-only pass with sparse-text segmentation recovers such dates.
+        // Scope it to PNB-like pages so continuation-line ordering for other
+        // parsers remains unchanged.
+        if (
+          /statement\s+of\s+account/i.test(recognized.data.text) &&
+          /statement\s+date/i.test(recognized.data.text) &&
+          !/\bbdo\b|sale\s+date|instalment|reference:/i.test(
+            recognized.data.text,
+          )
+        ) {
+          const headerHeight = Math.max(1, Math.floor(metadata.height * 0.32));
+          const header = await sharp(image.buffer, {
+            limitInputPixels: LIMITS.MAX_IMAGE_PIXELS,
+          })
+            .extract({
+              left: 0,
+              top: 0,
+              width: metadata.width,
+              height: headerHeight,
+            })
+            .resize({ width: targetWidth, withoutEnlargement: false })
+            .grayscale()
+            .sharpen()
+            .jpeg({ quality: 95 })
+            .toBuffer();
+          await worker.setParameters({
+            tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+          });
+          const headerRecognized = await worker.recognize(header);
+          for (const raw of headerRecognized.data.text.split(/\r?\n/)) {
+            const text = repairCommonOcrArtifacts(raw.trim());
+            if (text)
+              lines.push({
+                page: image.page,
+                order: order++,
+                text,
+                confidence: Math.max(
+                  0,
+                  Math.min(1, headerRecognized.data.confidence / 100),
+                ),
+              });
+          }
+        }
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
       }
       return lines;
     } finally {
@@ -365,6 +487,7 @@ export class ScannedPdfOcrExtractor implements DocumentExtractor {
   async extract(
     input: ValidatedInput,
     _workspace: TemporaryWorkspace,
+    options?: { pdfPassword?: string; hasPdfPassword?: boolean },
   ): Promise<ExtractedDocument> {
     if (!this.ocrEngine.isAvailable()) {
       const err = new Error('ocr_unavailable') as Error & { code?: string };
@@ -373,7 +496,12 @@ export class ScannedPdfOcrExtractor implements DocumentExtractor {
     }
     let parser: PDFParse | undefined;
     try {
-      parser = createPdfParser(input.files[0].buffer);
+      const hasPassword = options?.hasPdfPassword === true;
+      parser = createPdfParser(
+        input.files[0].buffer,
+        options?.pdfPassword,
+        hasPassword,
+      );
       const pageCount = await assertPdfPageLimit(parser);
       const screenshots = await parser.getScreenshot({
         desiredWidth: LIMITS.PDF_RENDER_WIDTH,
@@ -415,6 +543,8 @@ export class ScannedPdfOcrExtractor implements DocumentExtractor {
         textLength: totalText.length,
       };
     } catch (error) {
+      const mapped = mapPdfOpenError(error, options?.hasPdfPassword === true);
+      if (mapped) throw mapped;
       if ((error as CodedError).code) throw error;
       throw codedError('unreadable_document');
     } finally {
