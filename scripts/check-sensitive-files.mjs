@@ -9,6 +9,11 @@ const approvedFixtures = new Set([
   'fixtures/synthetic/unionbank/statement.csv',
   'fixtures/synthetic/unionbank/expected_extraction.csv',
 ]);
+const approvedPublicDocumentation = new Set([
+  'docs/images/extraction-results.png',
+  'docs/images/local-llm-categorization.png',
+  'docs/images/onboarding.png',
+]);
 const privateExtensions =
   /\.(?:bmp|csv|gif|heic|jpe?g|ocr\.txt|pdf|png|tiff?|tsv|webp)$/i;
 const privateNames = /^(?:\.env(?:\..+)?|.*\.(?:key|pem|token))$/i;
@@ -26,7 +31,13 @@ const repositoryFiles = gitLines(
 );
 const unsafeTracked = repositoryFiles.filter((path) => {
   const name = path.split('/').at(-1) ?? path;
-  if (path === '.env.example' || approvedFixtures.has(path)) return false;
+  if (
+    path === '.env.example' ||
+    approvedFixtures.has(path) ||
+    approvedPublicDocumentation.has(path)
+  ) {
+    return false;
+  }
   return privateExtensions.test(path) || privateNames.test(name);
 });
 
