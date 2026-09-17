@@ -1,14 +1,132 @@
 # eSOA to Wallet
 
-A local-first web application for converting electronic statements of account
-into reviewed transactions for Wallet by BudgetBakers.
+[![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Express 5](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![Local--first](https://img.shields.io/badge/privacy-local--first-2E7D32?logo=shield&logoColor=white)](#what-stays-local)
+[![OCR](https://img.shields.io/badge/OCR-Tesseract.js-5C2D91)](https://github.com/naptha/tesseract.js)
+[![Tests](https://img.shields.io/badge/tests-Vitest%20%2B%20Playwright-6E9F18)](#quality-commands)
 
-The application will extract statement rows, suggest categories using a local
-model and imported Wallet history, provide a human review step, and submit only
-approved transactions through the Wallet REST API. Financial data stays on the
-user's machine and telemetry is disabled by default.
+> A privacy-first workflow for turning electronic statements of account into
+> reviewed transactions for [Wallet by BudgetBakers](https://budgetbakers.com/).
 
-> **Current status:** Phase 5 complete — product polish, extensibility, and public release. Onboarding is state-derived (not persisted) and demo works offline through review (`Synthetic demo data — not a financial record`, Wallet disabled). Accessibility at WCAG 2.2 AA where applicable (semantic controls, keyboard, visible focus, aria-live, 320px + 200% zoom), diagnostics is explicit/previewable/local-only/redacted, benchmarks are reproducible from synthetic fixtures, and governance/release workflow is manual and owner-approved. See the [implementation plan](docs/implementation_plans/IMPLEMENTATION.md), [Phase 5 runbook](docs/implementation_plans/IMPLEMENT_phase5.md), [benchmark guide](docs/benchmarks/README.md), and [release runbook](docs/release/RELEASE.md).
+Import a statement, learn from an existing Wallet history, review every proposed
+category, and send only the transactions you explicitly approve. The application
+runs as a local React + Node.js service: financial data is kept in an ephemeral
+session, telemetry is disabled, and the categorization model is optional and
+loopback-only.
+
+![eSOA to Wallet onboarding and local-first workflow](docs/images/onboarding.png)
+
+_A guided workspace keeps the import, review, and optional Wallet handoff easy
+to understand at a glance._
+
+## What pain points does it solve?
+
+Moving statement data into a budgeting app is often repetitive, error-prone, and
+uncomfortable: users retype transactions, bank exports vary by layout, category
+choices are hard to reproduce, and financial documents are sent to services they
+do not control. This repo addresses those problems with a complete, inspectable
+workflow:
+
+- **Manual entry:** extract transactions from CSV, native-text PDF, scanned PDF,
+  and image statements with local parsers and OCR.
+- **Inconsistent formats:** use parser-backed layouts, source-page traceability,
+  validation, safe rejection, and clear error codes instead of guessing.
+- **Category fatigue:** learn from imported Wallet history, combine deterministic
+  matching with an optional local model, and show confidence, rationale, and
+  retrieved examples for every suggestion.
+- **Automation risk:** keep a human in the loop. Users can edit, split, exclude,
+  approve, and inspect duplicate candidates before anything is sent.
+- **Unclear financial writes:** map accounts and categories, create an immutable
+  dry run, require explicit confirmation, and report each Wallet result without
+  silently retrying unknown outcomes.
+
+![eSOA to Wallet statement extraction results](docs/images/extraction-results.png)
+
+_Extraction results remain inspectable, with parser identity, page status,
+confidence, totals, and source traceability visible to the user._
+
+## Technology and privacy, built into the repo
+
+The repository demonstrates a modern full-stack implementation with strong local
+boundaries:
+
+- **Frontend:** React 19 + TypeScript + Vite, with state-derived onboarding, an
+  accessible review workspace, keyboard-operable controls, responsive layouts,
+  visible focus, and reduced-motion support.
+- **Backend:** Node.js 22+ + Express 5, typed API contracts, Zod validation,
+  revision checks, session services, and replaceable ingestion, categorization,
+  review, and Wallet adapters.
+- **Document pipeline:** `pdf-parse` for native PDF text, Sharp for bounded image
+  preparation, Tesseract.js 6 with a bundled English model for offline OCR, and
+  `csv-parse` for structured imports.
+- **Local intelligence:** deterministic baseline classification plus an optional
+  OpenAI-compatible provider such as Ollama or LM Studio. Provider URLs are
+  server-validated and restricted to loopback addresses.
+- **Engineering quality:** Vitest unit/integration tests, Playwright end-to-end
+  tests, ESLint, TypeScript, Prettier, reproducible evaluation and benchmarks,
+  secret scanning, repository/privacy checks, external-origin checks, dependency
+  audits, and a production build.
+
+![eSOA to Wallet local LLM categorization](docs/images/local-llm-categorization.png)
+
+_Categorization can use an OpenAI-compatible model running locally, with the
+provider status and model connection visible in the active session._
+
+### What stays local
+
+By default, the app provides a local-only workflow with no telemetry:
+
+- Statement files, OCR output, Wallet history, prompts, model replies, proposals,
+  review decisions, and audit data live only in the active ephemeral session.
+- Temporary files use owner-only permissions and authenticated AES-256-GCM
+  encryption when disk-backed workspace storage is required.
+- The browser never places financial data in URLs, browser storage, logs, or
+  client-side provider/Wallet requests.
+- The optional model receives only bounded, sanitized transaction projections and
+  category context through the local server; it is never a required cloud API.
+- The synthetic demo uses committed fake data, works without credentials, and is
+  explicitly unable to contact a model endpoint or write to Wallet.
+
+## Product flow
+
+```text
+Statement files / pages
+          ↓
+Local extraction + OCR + bank parser
+          ↓
+Wallet history import → category catalog + retrieval
+          ↓
+Optional local model suggestions
+          ↓
+Review, edit, split, duplicate-check, approve
+          ↓
+Wallet account/category mapping → dry run → explicit commit
+```
+
+The default experience is intentionally inspectable: each extracted row retains
+source traceability, every proposal has a review state, and demo data is visibly
+labelled as synthetic and cannot reach Wallet.
+
+> **Project status:** The current public-release slice is complete. The app
+> supports multiple statement transport formats and parser-backed layouts;
+> unsupported layouts are rejected safely rather than guessed. See [supported
+> formats](#supported-transport-formats-vs-parser-backed-layouts),
+> [benchmarks](docs/benchmarks/README.md), and the [release runbook](docs/release/RELEASE.md).
+
+## At a glance
+
+| Area               | Included                                                                       |
+| ------------------ | ------------------------------------------------------------------------------ |
+| Frontend           | React 19, Vite, keyboard-operable onboarding and review workspace              |
+| Backend            | Node.js 22+, Express 5, typed session APIs                                     |
+| Extraction         | CSV, native-text PDF, scanned PDF, JPEG/PNG/WebP/TIFF/BMP; local Tesseract OCR |
+| Categorization     | Deterministic baseline plus optional OpenAI-compatible loopback provider       |
+| Wallet integration | Account/category discovery, dry run, explicit commit, retry-safe outcomes      |
+| Privacy            | Ephemeral sessions, no telemetry, loopback enforcement, redacted diagnostics   |
+| Quality            | Vitest, Playwright, ESLint, TypeScript, Prettier, audits, secret/privacy scans |
 
 ## Requirements
 
@@ -19,6 +137,18 @@ user's machine and telemetry is disabled by default.
 
 No statement, Wallet export, API token, local model, or network connection is
 needed after dependencies have been installed.
+
+## Documentation
+
+The documentation is organized into architecture decisions, parser/provider
+extension guides, benchmark methodology, operations notes, and release material.
+The most useful paths for contributors are:
+
+- [Parser authoring guide](docs/guides/parser-authoring.md)
+- [Local model provider guide](docs/guides/model-provider-authoring.md)
+- [Operations and troubleshooting](docs/guides/operations-and-troubleshooting.md)
+- [Architecture decisions](docs/adr/README.md)
+- [Release runbook](docs/release/RELEASE.md)
 
 ## Start locally
 
@@ -76,7 +206,7 @@ Guidance is keyboard-operable and derives from active session state (`hasExtract
 
 Transport (validated at the ingestion boundary): CSV (RFC-style, BOM tolerated), PDF (native text vs scanned), and image files (JPEG/PNG/WebP/TIFF/BMP). Every extractor produces a neutral `DocumentPage`/`TextLine` representation.
 
-Parser-backed layouts at exit are `pnb-ph-e-soa-v1` (PNB Peso Statement of Account OCR layout), `bdo-visa-gold-ph-image-v1` (the three-page synthetic BDO Visa Gold PHP image fixture), and `unionbank-ph-csv-v1` (the explicitly synthetic UnionBank CSV fixture with the exact `DATE,DESCRIPTION,CURRENCY,AMOUNT` header). Other CSV, PDF, or generic image layouts reach the generic extractor but return `422 unsupported_layout` until a corresponding parser is backed by fixtures. Do not treat this as generic CSV/PDF support.
+Parser-backed layouts at exit are `pnb-ph-e-soa-v1` (Peso Statement of Account OCR layout), `bdo-visa-gold-ph-image-v1` (the three-page synthetic PHP image fixture), and `unionbank-ph-csv-v1` (the explicitly synthetic CSV fixture with the exact `DATE,DESCRIPTION,CURRENCY,AMOUNT` header). These concrete fixtures document current parser coverage without implying generic support for every statement layout. Other CSV, PDF, or generic image layouts reach the generic extractor but return `422 unsupported_layout` until a corresponding parser is backed by fixtures.
 
 For recognized BDO images, the statement year and an opaque statement ID are
 derived from the OCR-visible statement date. If that context is absent or
@@ -257,15 +387,8 @@ The browser UI talks to a Node.js service bound to `127.0.0.1`. Document
 parsers, OCR engines, local-model providers (via `src/server/categorization/`), review validation/duplicate detection (via `src/server/review/`), and the Wallet client are kept behind replaceable interfaces. HTTP routes → session/review service → validator/duplicate detector/audit → categorization service (targeted run) → history adapter / retriever / classifier → local provider adapter; the UI uses a typed API client. Session state (extractions, history bytes/records/catalog/retrieval index, provider config safe for display, prompts, raw model replies, proposals, review items, duplicate groups, audit events, and redacted summaries) is ephemeral and lives only in the active in-memory session (or the existing encrypted workspace when necessary); `clearAll()`/graceful shutdown/stale-workspace behavior removes it without a second cleanup action. Refreshing the browser does not restore history, provider config, proposals, or review decisions. There is no transaction database or cross-session learning cache.
 
 Read [SECURITY.md](SECURITY.md) before handling a statement or credential. Key
-architectural decisions are recorded in [docs/adr](docs/adr), and the complete
-delivery plan is in
-[IMPLEMENTATION.md](docs/implementation_plans/IMPLEMENTATION.md). Phase 1
-details are in
-[IMPLEMENT_phase1.md](docs/implementation_plans/IMPLEMENT_phase1.md), Phase 2
-in
-[IMPLEMENT_phase2.md](docs/implementation_plans/IMPLEMENT_phase2.md), and Phase
-3 in
-[IMPLEMENT_phase3.md](docs/implementation_plans/IMPLEMENT_phase3.md).
+architectural decisions and contributor-facing guides are collected under
+[`docs/`](docs/).
 
 ## Contributing
 
@@ -277,7 +400,7 @@ financial data.
 
 Wallet REST is the first write integration (`https://rest.budgetbakers.com/wallet`, `Authorization: Bearer <token>`, pagination `limit`/`offset` max 200, `409` initial-sync, `429` with `Retry-After`, non-atomic per-`inputIndex` results, `207` mixed). A Wallet Premium user supplies an ephemeral token at runtime (password field, server-session only, never echoed/logged/exported, fixed HTTPS origin, `redirect: manual`, browser never contacts Wallet). After Phase 3 approval, the user selects one API-confirmed writable account, maps every distinct approved local `categoryName` to an eligible Wallet category, creates an immutable dry-run snapshot (count, signed total `amountMinor`, destination label, mapping coverage, records, split lineage, `Not sent yet`), explicitly confirms, and sees per-item outcomes: `succeeded` (Wallet ID), `client_error`, `server_error_retryable`, `unknown` (timeout/malformed/index mismatch — never auto-resent), `not_submitted`. Retry is server-selected only for `server_error_retryable`; `unknown` requires manual resolution; `409` halts writes; `429` exposes bounded cancellable wait; `wallet-import-results.csv` is redacted and active-session only.
 
-OpenAPI sanitized fixture: `src/server/wallet/openapi.fixture.json` (version 2026-08-30) plus contract tests ensure adapter parity.
+OpenAPI sanitized fixture: `src/server/wallet/openapi.fixture.json` plus contract tests ensure adapter parity. Check Wallet’s current documentation before relying on the fixture.
 
 - REST reference: <https://rest.budgetbakers.com/wallet/reference>
 - Wallet MCP endpoint: <https://mcp.wallet.budgetbakers.com>

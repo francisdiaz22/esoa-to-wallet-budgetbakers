@@ -1,5 +1,4 @@
 {
-  "recordedAt": "2026-09-01",
   "specVersion": "wallet-rest-2.0.0-sanitized",
   "baseUrl": "https://rest.budgetbakers.com/wallet",
   "authentication": "Authorization: Bearer <token>",

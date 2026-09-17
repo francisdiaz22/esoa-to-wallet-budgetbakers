@@ -59,7 +59,6 @@ This guide explains how to add a bank/layout parser with fixture-driven developm
 - Inferring `statementId` from a filename or layout label; derive it only from validated statement evidence or user-provided metadata.
 - Persisting raw excerpts in `Error.message`, console, logs, or snapshots.
 
-See also: [IMPLEMENTATION.md](../implementation_plans/IMPLEMENTATION.md),
-[IMPLEMENT_phase1.md](../implementation_plans/IMPLEMENT_phase1.md),
-[bdoParser.ts](../../src/server/ingestion/bdoParser.ts), and
+See also the [root README](../../README.md), the [architecture decision
+records](../adr/README.md), [bdoParser.ts](../../src/server/ingestion/bdoParser.ts), and
 [expected_extraction.csv](../../fixtures/synthetic/bdo/expected_extraction.csv).
