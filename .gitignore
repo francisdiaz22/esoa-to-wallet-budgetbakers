@@ -63,3 +63,5 @@ artifacts/
 !fixtures/synthetic/review/expected_summary.json
 !docs/benchmarks/report.json
 !docs/benchmarks/report.md
+!docs/images/
+!docs/images/*.png
