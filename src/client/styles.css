@@ -646,6 +646,18 @@ button:disabled {
   font-weight: 600;
 }
 
+.model-progress__log {
+  margin: 0.35rem 0 0;
+  color: #285c42;
+  font-size: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.model-progress__indicator--determinate {
+  animation: none;
+  transition: width 180ms ease;
+}
+
 @keyframes model-progress-slide {
   0% {
     transform: translateX(-105%);

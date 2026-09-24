@@ -179,6 +179,26 @@ export type CategorizationResult = {
   summary: { total: number; byOutcome: Record<string, number> };
 };
 
+export type CategorizationProgress = {
+  total: number;
+  completed: number;
+  current: number;
+  message: string;
+};
+
+export async function getCategorizationProgress(
+  sessionId: string,
+): Promise<{ pending: boolean; progress: CategorizationProgress | null }> {
+  const res = await fetch(
+    `/api/session/${encodeURIComponent(sessionId)}/categorize/status`,
+  );
+  if (!res.ok) throw new Error('Unable to read categorization progress.');
+  return (await res.json()) as {
+    pending: boolean;
+    progress: CategorizationProgress | null;
+  };
+}
+
 export async function importHistory(
   sessionId: string,
   file: File,

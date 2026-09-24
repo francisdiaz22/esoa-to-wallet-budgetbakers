@@ -18,6 +18,7 @@ import {
   configureProvider,
   testProvider,
   categorize,
+  getCategorizationProgress,
   initializeReview,
   getReview,
   getReviewItem,
@@ -46,6 +47,7 @@ import {
   type ApiError,
   type HistorySummary,
   type CategorizationResult,
+  type CategorizationProgress,
   type ReviewItem,
   type ReviewSummary,
   type WalletSetupResponse,
@@ -272,6 +274,9 @@ export function App() {
   const [catStatus, setCatStatus] = useState<Phase2Status>('idle');
   const [catResult, setCatResult] = useState<CategorizationResult | null>(null);
   const [catError, setCatError] = useState<ApiError | null>(null);
+  const [catProgress, setCatProgress] = useState<CategorizationProgress | null>(
+    null,
+  );
   const [descriptionId, setDescriptionId] = useState('');
   const [paymentDate, setPaymentDate] = useState(() => {
     const now = new Date();
@@ -596,10 +601,19 @@ export function App() {
     if (!result || catStatus === 'pending') return;
     setCatStatus('pending');
     setCatError(null);
+    setCatProgress(null);
+    const sessionId = result.sessionId;
+    const progressTimer = window.setInterval(() => {
+      void getCategorizationProgress(sessionId)
+        .then(({ progress }) => {
+          if (progress) setCatProgress(progress);
+        })
+        .catch(() => {
+          // The categorization request remains the source of truth for errors.
+        });
+    }, 500);
     try {
-      const res = await categorize(
-        (result as unknown as { sessionId: string }).sessionId,
-      );
+      const res = await categorize(sessionId);
       setCatResult(res);
       setCatStatus('success');
       // Auto-initialize review workspace
@@ -624,6 +638,9 @@ export function App() {
       const err = e as Error & { apiError?: ApiError };
       setCatError(err.apiError ?? { code: 'unknown', message: err.message });
       setCatStatus('error');
+    } finally {
+      window.clearInterval(progressTimer);
+      setCatProgress(null);
     }
   };
 
@@ -3620,13 +3637,32 @@ export function App() {
                     className="model-progress__track"
                     role="progressbar"
                     aria-label="Local model categorization progress"
+                    aria-valuemin={0}
+                    aria-valuemax={catProgress?.total ?? undefined}
+                    aria-valuenow={catProgress?.completed ?? undefined}
                     aria-valuetext="Local model is running"
                   >
-                    <span className="model-progress__indicator" />
+                    <span
+                      className={`model-progress__indicator${catProgress ? ' model-progress__indicator--determinate' : ''}`}
+                      style={
+                        catProgress
+                          ? {
+                              width: `${Math.max(4, (catProgress.completed / catProgress.total) * 100)}%`,
+                            }
+                          : undefined
+                      }
+                    />
                   </div>
                   <p className="model-progress__label">
-                    Local model is running… This can take a moment.
+                    {catProgress
+                      ? `${catProgress.completed} of ${catProgress.total} transactions categorized.`
+                      : 'Local model is running… This can take a moment.'}
                   </p>
+                  {catProgress && (
+                    <p className="model-progress__log" role="status">
+                      <span aria-hidden="true">▸</span> {catProgress.message}
+                    </p>
+                  )}
                 </div>
               )}
               {!historySummary && (

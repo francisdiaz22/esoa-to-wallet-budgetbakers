@@ -648,6 +648,22 @@ router.get('/:id/provider', (req, res) => {
 });
 
 // Categorization
+router.get('/:id/categorize/status', (req, res) => {
+  const requestId = makeRequestId();
+  const id = (req.params as { id: string }).id;
+  if (!id || id.length < 10 || !globalSessionStore.getEntry(id)) {
+    return errorResponse(res, {
+      status: 404,
+      code: 'session_not_found',
+      message: 'Session not found.',
+      stage: 'validated',
+      requestId,
+    });
+  }
+  const progress = globalSessionStore.getCategorizationProgress(id);
+  res.json({ pending: Boolean(progress), progress });
+});
+
 router.post('/:id/categorize', async (req, res) => {
   const requestId = makeRequestId();
   const id = (req.params as { id: string }).id;
