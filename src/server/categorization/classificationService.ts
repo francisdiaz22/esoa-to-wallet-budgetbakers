@@ -138,6 +138,12 @@ export class ClassificationService {
     // especially while larger models are loading or on memory-limited hosts.
     const CONCURRENCY = 1;
     const runOne = async (tx: (typeof transactions)[number], idx: number) => {
+      this.store.updateCategorizationProgress(sessionId, {
+        total: transactions.length,
+        completed: idx,
+        current: idx + 1,
+        message: `Local model is categorizing transaction ${idx + 1} of ${transactions.length}…`,
+      });
       const current = this.store.getEntry(sessionId);
       if (
         !current ||
@@ -366,6 +372,12 @@ export class ClassificationService {
         return;
       }
       results[idx] = parsed.data;
+      this.store.updateCategorizationProgress(sessionId, {
+        total: transactions.length,
+        completed: idx + 1,
+        current: idx + 1,
+        message: `Categorized transaction ${idx + 1} of ${transactions.length}.`,
+      });
     };
     const workers: Promise<void>[] = [];
     const worker = async () => {
@@ -380,6 +392,12 @@ export class ClassificationService {
         )
           break;
         await runOne(transactions[currentIdx], currentIdx);
+        this.store.updateCategorizationProgress(sessionId, {
+          total: transactions.length,
+          completed: currentIdx + 1,
+          current: currentIdx + 1,
+          message: `Categorized transaction ${currentIdx + 1} of ${transactions.length}.`,
+        });
       }
     };
     for (let i = 0; i < CONCURRENCY; i++) workers.push(worker());
@@ -487,7 +505,11 @@ export class ClassificationService {
     const allRowIds = extraction.transactions.map((t) => t.sourceRowId);
     const phase2AtStart = phase2.historyVersion;
     // Mark pending for whole-statement categ
-    this.store.setPendingCategorization(sessionId, phase2AtStart);
+    this.store.setPendingCategorization(
+      sessionId,
+      phase2AtStart,
+      allRowIds.length,
+    );
     const subsetRes = await this.categorizeSubset(sessionId, allRowIds, signal);
     this.store.clearPendingCategorization(sessionId);
     if ('error' in subsetRes) {

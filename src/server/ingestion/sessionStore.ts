@@ -33,6 +33,14 @@ type Phase2State = {
   categorizationResult?: CategorizationResult;
   // used for atomic stale detection
   pendingCategorizationVersion?: number;
+  categorizationProgress?: CategorizationProgress;
+};
+
+export type CategorizationProgress = {
+  total: number;
+  completed: number;
+  current: number;
+  message: string;
 };
 
 type Phase3State = {
@@ -311,17 +319,44 @@ export class SessionStore {
     return this.sessions.get(sessionId)?.phase2?.categorizationResult ?? null;
   }
 
-  setPendingCategorization(sessionId: string, historyVersion: number): boolean {
+  setPendingCategorization(
+    sessionId: string,
+    historyVersion: number,
+    total: number,
+  ): boolean {
     const entry = this.sessions.get(sessionId);
     if (!entry || !entry.phase2) return false;
     if (entry.phase2.historyVersion !== historyVersion) return false;
     entry.phase2.pendingCategorizationVersion = historyVersion;
+    entry.phase2.categorizationProgress = {
+      total,
+      completed: 0,
+      current: 0,
+      message: `Preparing the local model for ${total} transaction${total === 1 ? '' : 's'}…`,
+    };
     return true;
   }
 
   clearPendingCategorization(sessionId: string): void {
-    const entry = this.sessions.get(sessionId);
-    if (entry?.phase2) entry.phase2.pendingCategorizationVersion = undefined;
+    const phase2 = this.sessions.get(sessionId)?.phase2;
+    if (phase2) {
+      phase2.pendingCategorizationVersion = undefined;
+      phase2.categorizationProgress = undefined;
+    }
+  }
+
+  updateCategorizationProgress(
+    sessionId: string,
+    progress: CategorizationProgress,
+  ): void {
+    const phase2 = this.sessions.get(sessionId)?.phase2;
+    if (phase2?.pendingCategorizationVersion) {
+      phase2.categorizationProgress = progress;
+    }
+  }
+
+  getCategorizationProgress(sessionId: string): CategorizationProgress | null {
+    return this.sessions.get(sessionId)?.phase2?.categorizationProgress ?? null;
   }
 
   isPendingCategorization(sessionId: string): boolean {

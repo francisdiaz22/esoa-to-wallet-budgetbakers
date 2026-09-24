@@ -8,6 +8,10 @@ const approvedFixtures = new Set([
   'fixtures/synthetic/bdo/statement_page_3.jpg',
   'fixtures/synthetic/unionbank/statement.csv',
   'fixtures/synthetic/unionbank/expected_extraction.csv',
+  // Reviewed synthetic documentation screenshots; exact paths only.
+  'docs/images/extraction-results.png',
+  'docs/images/local-llm-categorization.png',
+  'docs/images/onboarding.png',
 ]);
 const approvedPublicDocumentation = new Set([
   'docs/images/extraction-results.png',
