@@ -16,15 +16,17 @@ import {
 
 export const PNB_PARSER_ID = 'pnb-ph-e-soa-v1';
 
-const PNB_ANCHORS = [
-  'statement of account',
-  'account details',
-  'trans date',
-  'post date',
-  'reference number',
-  'description',
-  'amount',
-];
+function hasHeaderPair(text: string, first: string, second: string): boolean {
+  return new RegExp(`\\b${first}\\b[\\s\\S]{0,120}\\b${second}\\b`, 'i').test(
+    text,
+  );
+}
+
+function pnbHeaderText(lines: ExtractedDocument['lines']): string {
+  const joined = normalize(lines.map((line) => line.text).join(' '));
+  const start = joined.indexOf('account details');
+  return start < 0 ? joined : joined.slice(start, start + 500);
+}
 
 const MONTHS: Record<string, number> = {
   jan: 1,
@@ -83,6 +85,23 @@ function findStatementDateText(document: ExtractedDocument): string {
 
   const numeric = afterLabel.match(/\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/);
   if (numeric) return `${numeric[1]}/${numeric[2]}/${numeric[3]}`;
+
+  // OCR can emit the PNB header's value row before its label row (the date
+  // columns are often read independently from the header text). In that case
+  // use the first explicit year-bearing date on the statement page; PNB's
+  // header places statement date before payment due date.
+  const beforeOrElsewhere = joined.match(
+    /\b([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})\b/i,
+  );
+  if (beforeOrElsewhere) {
+    return `${beforeOrElsewhere[1]} ${beforeOrElsewhere[2]} ${beforeOrElsewhere[3]}`;
+  }
+  const numericElsewhere = joined.match(
+    /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/,
+  );
+  if (numericElsewhere) {
+    return `${numericElsewhere[1]}/${numericElsewhere[2]}/${numericElsewhere[3]}`;
+  }
   throw new Error('missing_statement_context');
 }
 
@@ -127,6 +146,7 @@ function classifyExcluded(
 ): ExcludedSourceRow['exclusionReason'] | null {
   const text = normalize(description);
   if (text.includes('previous balance')) return 'previous-balance';
+  if (text.includes('current balance')) return 'summary';
   if (text.includes('payment') || text.includes('credit'))
     return 'credit-card-payment';
   if (amountMinor < 0) return 'other';
@@ -192,27 +212,34 @@ export class PnbPhEsoaParser implements BankParser {
       };
     }
     const joined = normalize(document.lines.map((line) => line.text).join(' '));
-    const hits = PNB_ANCHORS.filter((anchor) => joined.includes(anchor)).length;
+    const header = pnbHeaderText(document.lines);
+    const transDate = hasHeaderPair(header, 'trans', 'date');
+    const postDate = hasHeaderPair(header, 'post', 'date');
+    const referenceNumber = hasHeaderPair(header, 'reference', 'number');
+    const hasTableLabels =
+      transDate &&
+      postDate &&
+      (referenceNumber ||
+        (header.includes('description') && header.includes('amount')));
     const rowCount = document.lines.filter((line) =>
       parsePnbRow(line.text),
     ).length;
-    const hasCoreTable =
-      joined.includes('account details') &&
-      joined.includes('trans') &&
-      joined.includes('post') &&
-      joined.includes('reference') &&
-      joined.includes('number') &&
-      joined.includes('description') &&
-      joined.includes('amount');
     const hasTransactionEvidence =
       rowCount > 0 ||
       /\b\d{1,2}[/-]\d{1,2}\b[\s\S]{0,100}\b\d{8,24}\b[\s\S]{0,200}\d[\d,]*\.\d{2}\b/.test(
         joined,
       );
-    if (!hasCoreTable || hits < 4 || !hasTransactionEvidence) {
+    if (
+      !joined.includes('account details') ||
+      !hasTableLabels ||
+      !hasTransactionEvidence
+    ) {
       return {
         matched: false,
-        score: Math.min(0.5, hits / PNB_ANCHORS.length),
+        score: Math.min(
+          0.5,
+          (Number(transDate) + Number(postDate) + Number(referenceNumber)) / 3,
+        ),
         reason: 'PNB account-details table not found',
         parserId: this.id,
       };

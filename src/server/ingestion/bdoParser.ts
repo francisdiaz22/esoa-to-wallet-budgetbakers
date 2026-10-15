@@ -42,11 +42,20 @@ function containsAnchor(lines: TextLine[]): boolean {
 
 function isPnbLayout(lines: TextLine[]): boolean {
   const joined = normalizeForDetection(lines.map((l) => l.text).join(' '));
+  const accountDetails = joined.indexOf('account details');
+  const header =
+    accountDetails < 0
+      ? joined
+      : joined.slice(accountDetails, accountDetails + 500);
+  const transDate = /\btrans\b[\s\S]{0,120}\bdate\b/.test(header);
+  const postDate = /\bpost\b[\s\S]{0,120}\bdate\b/.test(header);
+  const referenceNumber = /\breference\b[\s\S]{0,120}\bnumber\b/.test(header);
   const hasPnbTableMarkers =
-    joined.includes('account details') &&
-    (joined.includes('trans date') || joined.includes('post date')) &&
-    (joined.includes('reference number') ||
-      (joined.includes('description') && joined.includes('amount')));
+    accountDetails >= 0 &&
+    transDate &&
+    postDate &&
+    (referenceNumber ||
+      (header.includes('description') && header.includes('amount')));
   const hasBdoSpecificMarker =
     joined.includes('bdo') ||
     joined.includes('visa gold') ||
