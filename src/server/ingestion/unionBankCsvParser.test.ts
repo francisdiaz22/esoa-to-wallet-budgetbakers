@@ -56,6 +56,42 @@ describe('UnionBank CSV parser', () => {
     expect(parser.canParse(document).matched).toBe(false);
   });
 
+  it('recognizes UnionBank exports with empty spreadsheet padding and summary rows', () => {
+    const parser = new UnionBankPhCsvParser();
+    const document: ExtractedDocument = {
+      sourceFormat: 'csv',
+      pages: 1,
+      lines: [
+        { page: 1, order: 1, text: ',,,,,,' },
+        { page: 1, order: 2, text: ',STATEMENT BALANCE,PHP,"24,805.63",,,' },
+        { page: 1, order: 3, text: ',DATE,DESCRIPTION,CURRENCY,AMOUNT,,' },
+        {
+          page: 1,
+          order: 4,
+          text: ',10/12/2026,"ARABICA MITSUKOSHI BGC, TAGUIG, PH",PHP,300,,',
+        },
+        {
+          page: 1,
+          order: 5,
+          text: ',09/28/2026,Payment via UB Online UB919637,PHP,"-23,213.49",,',
+        },
+      ],
+      textLength: 200,
+    };
+    expect(parser.canParse(document).matched).toBe(true);
+    const parsed = parser.parse(document, {
+      statementId: 'UNIONBANK_20261012',
+      statementYear: 2026,
+      currency: 'PHP',
+    });
+    expect(parsed.transactions).toHaveLength(1);
+    expect(parsed.transactions[0].description).toBe(
+      'ARABICA MITSUKOSHI BGC, TAGUIG, PH',
+    );
+    expect(parsed.transactions[0].amount).toBe(-300);
+    expect(parsed.excludedRows).toHaveLength(1);
+  });
+
   it('reports malformed recognized rows without creating a transaction', () => {
     const parser = new UnionBankPhCsvParser();
     const document = syntheticDocument();

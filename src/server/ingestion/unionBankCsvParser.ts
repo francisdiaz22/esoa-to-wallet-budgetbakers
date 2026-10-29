@@ -26,10 +26,23 @@ function parseCsvLine(text: string): string[] | null {
   }
 }
 
-function isUnionBankHeader(row: string[]): boolean {
-  return HEADER.every(
-    (value, index) => row[index]?.trim().toUpperCase() === value,
-  );
+function unionBankHeaderOffset(row: string[]): number | null {
+  // UnionBank's exported spreadsheet CSV includes empty columns around the
+  // actual table (often a blank first column and two trailing columns).
+  // Accept only empty padding so unrelated layouts still cannot match.
+  const first = row.findIndex((value) => value.trim() !== '');
+  if (
+    first < 0 ||
+    !HEADER.every(
+      (value, index) => row[first + index]?.trim().toUpperCase() === value,
+    )
+  ) {
+    return null;
+  }
+  if (row.slice(0, first).some((value) => value.trim() !== '')) return null;
+  if (row.slice(first + HEADER.length).some((value) => value.trim() !== ''))
+    return null;
+  return first;
 }
 
 export function parseUnionBankDate(raw: string): string {
@@ -72,10 +85,11 @@ export class UnionBankPhCsvParser implements BankParser {
         reason: 'UnionBank parser only supports CSV',
       };
     }
-    const header = document.lines
+    const headerOffset = document.lines
       .map((line) => parseCsvLine(line.text))
-      .find((row): row is string[] => row !== null && isUnionBankHeader(row));
-    if (!header) {
+      .map((row) => (row === null ? null : unionBankHeaderOffset(row)))
+      .find((offset): offset is number => offset !== null);
+    if (headerOffset === undefined) {
       return {
         matched: false,
         score: 0.1,
@@ -84,7 +98,10 @@ export class UnionBankPhCsvParser implements BankParser {
     }
     const candidateCount = document.lines.filter((line) => {
       const row = parseCsvLine(line.text);
-      return row !== null && /^\d{2}\/\d{2}\/\d{4}$/.test(row[0]?.trim() ?? '');
+      return (
+        row !== null &&
+        /^\d{2}\/\d{2}\/\d{4}$/.test(row[headerOffset]?.trim() ?? '')
+      );
     }).length;
     const score = candidateCount > 0 ? 0.99 : 0.6;
     return {
@@ -96,6 +113,12 @@ export class UnionBankPhCsvParser implements BankParser {
   }
 
   parse(document: ExtractedDocument, context: ParserContext): ParsedStatement {
+    const headerOffset = document.lines
+      .map((line) => parseCsvLine(line.text))
+      .map((row) => (row === null ? null : unionBankHeaderOffset(row)))
+      .find((offset): offset is number => offset !== null);
+    if (headerOffset === undefined)
+      throw new Error('UnionBank CSV header not found');
     const transactions: ExtractedTransaction[] = [];
     const excludedRows: ParsedStatement['excludedRows'] = [];
     const issues: Issue[] = [];
@@ -105,17 +128,21 @@ export class UnionBankPhCsvParser implements BankParser {
 
     for (const line of [...document.lines].sort((a, b) => a.order - b.order)) {
       const row = parseCsvLine(line.text);
-      if (!row || isUnionBankHeader(row)) continue;
-      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(row[0]?.trim() ?? '')) continue;
+      if (!row || unionBankHeaderOffset(row) !== null) continue;
+      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(row[headerOffset]?.trim() ?? ''))
+        continue;
       recognizedCandidateCount++;
 
-      const description = row[1]?.trim().replace(/\s+/g, ' ') ?? '';
-      const currency = row[2]?.trim().toUpperCase() ?? '';
+      const description =
+        row[headerOffset + 1]?.trim().replace(/\s+/g, ' ') ?? '';
+      const currency = row[headerOffset + 2]?.trim().toUpperCase() ?? '';
       let date: string;
       let amountMinor: number;
       try {
-        date = parseUnionBankDate(row[0]);
-        amountMinor = parseUnionBankAmountToMinorUnits(row[3] ?? '');
+        date = parseUnionBankDate(row[headerOffset]);
+        amountMinor = parseUnionBankAmountToMinorUnits(
+          row[headerOffset + 3] ?? '',
+        );
       } catch {
         issues.push({
           code: 'malformed_row',
