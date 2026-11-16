@@ -14,6 +14,7 @@ const approvedFixtures = new Set([
   'docs/images/onboarding.png',
 ]);
 const approvedPublicDocumentation = new Set([
+  // Reviewed synthetic documentation screenshots; exact paths only.
   'docs/images/extraction-results.png',
   'docs/images/local-llm-categorization.png',
   'docs/images/onboarding.png',

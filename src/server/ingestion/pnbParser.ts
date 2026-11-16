@@ -18,7 +18,9 @@ export const PNB_PARSER_ID = 'pnb-ph-e-soa-v1';
 
 const PNB_ANCHORS = [
   'statement of account',
+  'credit card account number',
   'account details',
+  'statement date',
   'trans date',
   'post date',
   'reference number',
@@ -154,6 +156,14 @@ function parsePnbRow(text: string): {
   };
 }
 
+function hasPnbRowEvidence(text: string): boolean {
+  // A PNB OCR row contains two DD/MM dates, a long reference, and a decimal
+  // amount. This signature remains useful when OCR drops the table headings.
+  return /\b\d{1,2}[/-]\d{1,2}\s+\d{1,2}[/-]\d{1,2}\b[\s\S]{0,100}\b\d{8,24}\b[\s\S]{0,200}\b\d[\d,]*\.\d{2}\b/.test(
+    text,
+  );
+}
+
 function parsePnbRowFromLines(
   lines: { page: number; text: string }[],
   index: number,
@@ -196,20 +206,39 @@ export class PnbPhEsoaParser implements BankParser {
     const rowCount = document.lines.filter((line) =>
       parsePnbRow(line.text),
     ).length;
+    const hasPnbStatementHeader =
+      joined.includes('statement date') &&
+      joined.includes('credit card account number');
     const hasCoreTable =
-      joined.includes('account details') &&
-      joined.includes('trans') &&
-      joined.includes('post') &&
-      joined.includes('reference') &&
-      joined.includes('number') &&
-      joined.includes('description') &&
-      joined.includes('amount');
+      (joined.includes('account details') || hasPnbStatementHeader) &&
+      ((joined.includes('trans') &&
+        joined.includes('post') &&
+        joined.includes('reference') &&
+        joined.includes('number') &&
+        joined.includes('description') &&
+        joined.includes('amount')) ||
+        // OCR can miss or scramble the narrow table-heading row. The PNB
+        // statement header plus a fully structured PNB transaction row is
+        // sufficient evidence to route the page to this parser.
+        (joined.includes('statement of account') &&
+          joined.includes('statement date') &&
+          (rowCount > 0 || hasPnbRowEvidence(joined))) ||
+        (hasPnbStatementHeader &&
+          /\b\d{1,2}[/-]\d{1,2}\b/.test(joined) &&
+          /\b\d[\d,]*\.\d{2}\b/.test(joined)));
     const hasTransactionEvidence =
       rowCount > 0 ||
+      (hasPnbStatementHeader &&
+        /\b\d{1,2}[/-]\d{1,2}\b/.test(joined) &&
+        /\b\d[\d,]*\.\d{2}\b/.test(joined)) ||
       /\b\d{1,2}[/-]\d{1,2}\b[\s\S]{0,100}\b\d{8,24}\b[\s\S]{0,200}\d[\d,]*\.\d{2}\b/.test(
         joined,
       );
-    if (!hasCoreTable || hits < 4 || !hasTransactionEvidence) {
+    if (
+      !hasCoreTable ||
+      (hits < 4 && !hasPnbStatementHeader) ||
+      !hasTransactionEvidence
+    ) {
       return {
         matched: false,
         score: Math.min(0.5, hits / PNB_ANCHORS.length),

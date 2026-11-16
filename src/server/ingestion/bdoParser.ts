@@ -51,7 +51,13 @@ function isPnbLayout(lines: TextLine[]): boolean {
     joined.includes('bdo') ||
     joined.includes('visa gold') ||
     joined.includes('sale date');
-  return hasPnbTableMarkers && !hasBdoSpecificMarker;
+  const hasPnbRowEvidence =
+    (joined.includes('account details') ||
+      (joined.includes('statement date') &&
+        joined.includes('credit card account number'))) &&
+    /\b\d{1,2}[/-]\d{1,2}\b/.test(joined) &&
+    /\b\d[\d,]*\.\d{2}\b/.test(joined);
+  return (hasPnbTableMarkers || hasPnbRowEvidence) && !hasBdoSpecificMarker;
 }
 
 // --- Normalizers ---
