@@ -9,7 +9,7 @@ const approvedFixtures = new Set([
   'fixtures/synthetic/unionbank/statement.csv',
   'fixtures/synthetic/unionbank/expected_extraction.csv',
 ]);
-const approvedDocumentationScreenshots = new Set([
+const approvedPublicDocumentation = new Set([
   // Reviewed synthetic documentation screenshots; exact paths only.
   'docs/images/extraction-results.png',
   'docs/images/local-llm-categorization.png',
@@ -35,7 +35,7 @@ const unsafeTracked = repositoryFiles.filter((path) => {
   if (
     path === '.env.example' ||
     approvedFixtures.has(path) ||
-    approvedDocumentationScreenshots.has(path)
+    approvedPublicDocumentation.has(path)
   ) {
     return false;
   }
